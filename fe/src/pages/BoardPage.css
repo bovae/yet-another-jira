@@ -1,0 +1,224 @@
+/*
+ * Board styling, derived from the Vercel design language in fe/DESIGN.md:
+ * near-white canvas, ink text, hairline borders, stacked subtle shadows, the
+ * geometric sans (Geist -> Inter fallback), and the type accent colours.
+ */
+:root {
+  --yaj-ink: #171717;
+  --yaj-body: #4d4d4d;
+  --yaj-mute: #888888;
+  --yaj-canvas: #ffffff;
+  --yaj-canvas-soft: #fafafa;
+  --yaj-canvas-soft-2: #f5f5f5;
+  --yaj-hairline: #ebebeb;
+  --yaj-hairline-strong: #a1a1a1;
+  --yaj-link: #0070f3;
+  --yaj-link-bg-soft: #d3e5ff;
+  --yaj-error: #ee0000;
+  --yaj-error-soft: #f7d4d6;
+  --yaj-warning-deep: #ab570a;
+  --yaj-warning-soft: #ffefcf;
+  --yaj-cyan-deep: #29bc9b;
+  --yaj-cyan-soft: #aaffec;
+
+  --yaj-radius-sm: 6px;
+  --yaj-radius-md: 8px;
+  --yaj-shadow-card: 0px 1px 1px #00000005, 0px 2px 2px #0000000a;
+
+  --yaj-font-sans: Geist, Inter, system-ui, -apple-system, sans-serif;
+  --yaj-font-mono: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+}
+
+.board-page {
+  min-height: 100vh;
+  margin: 0;
+  padding: 32px 24px 48px;
+  background: var(--yaj-canvas-soft);
+  color: var(--yaj-ink);
+  font-family: var(--yaj-font-sans);
+  box-sizing: border-box;
+}
+
+.board-page__header {
+  margin-bottom: 24px;
+}
+
+.board-page__eyebrow {
+  margin: 0 0 4px;
+  font-family: var(--yaj-font-mono);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: var(--yaj-mute);
+}
+
+.board-page__title {
+  margin: 0;
+  font-size: 32px;
+  font-weight: 600;
+  line-height: 40px;
+  letter-spacing: -1.28px;
+}
+
+/* --- Board layout: five columns side by side, scrolling horizontally if needed --- */
+.board {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(240px, 1fr);
+  gap: 16px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+}
+
+.board-column {
+  display: flex;
+  flex-direction: column;
+  background: var(--yaj-canvas-soft-2);
+  border: 1px solid var(--yaj-hairline);
+  border-radius: var(--yaj-radius-md);
+  padding: 12px;
+  min-height: 120px;
+}
+
+.board-column__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.board-column__title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: -0.28px;
+}
+
+.board-column__count {
+  min-width: 20px;
+  padding: 0 6px;
+  border-radius: 9999px;
+  background: var(--yaj-canvas);
+  border: 1px solid var(--yaj-hairline);
+  color: var(--yaj-body);
+  font-size: 12px;
+  line-height: 18px;
+  text-align: center;
+}
+
+.board-column__cards {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* --- Ticket card --- */
+.ticket-card {
+  background: var(--yaj-canvas);
+  border: 1px solid var(--yaj-hairline);
+  border-radius: var(--yaj-radius-md);
+  box-shadow: var(--yaj-shadow-card);
+  padding: 12px;
+}
+
+.ticket-card__title {
+  margin: 0 0 8px;
+  font-size: 14px;
+  line-height: 20px;
+  letter-spacing: -0.28px;
+}
+
+.ticket-card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.ticket-card__type {
+  font-family: var(--yaj-font-mono);
+  font-size: 12px;
+  line-height: 16px;
+  padding: 1px 8px;
+  border-radius: 9999px;
+}
+
+.ticket-card__type--bug {
+  background: var(--yaj-error-soft);
+  color: var(--yaj-error);
+}
+
+.ticket-card__type--feature {
+  background: var(--yaj-link-bg-soft);
+  color: var(--yaj-link);
+}
+
+.ticket-card__type--fix {
+  background: var(--yaj-warning-soft);
+  color: var(--yaj-warning-deep);
+}
+
+.ticket-card__epic {
+  font-size: 12px;
+  color: var(--yaj-mute);
+}
+
+/* --- Loading / error states --- */
+.board-state {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 24px;
+  border: 1px solid var(--yaj-hairline);
+  border-radius: var(--yaj-radius-md);
+  background: var(--yaj-canvas);
+  color: var(--yaj-body);
+  font-size: 14px;
+}
+
+.board-state--error {
+  border-color: var(--yaj-error-soft);
+  background: var(--yaj-error-soft);
+  color: var(--yaj-error);
+}
+
+.board-state__retry {
+  margin-left: auto;
+  padding: 4px 12px;
+  border: 1px solid var(--yaj-error);
+  border-radius: var(--yaj-radius-sm);
+  background: var(--yaj-canvas);
+  color: var(--yaj-error);
+  font-family: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.board-state__retry:hover:not(:disabled) {
+  background: var(--yaj-canvas-soft);
+}
+
+.board-state__retry:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.board-state__spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--yaj-hairline);
+  border-top-color: var(--yaj-link);
+  border-radius: 9999px;
+  animation: yaj-spin 0.8s linear infinite;
+}
+
+@keyframes yaj-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .board-state__spinner {
+    animation: none;
+  }
+}

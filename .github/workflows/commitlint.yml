@@ -1,0 +1,18 @@
+name: Commit Message Lint
+
+on:
+  pull_request:
+    branches: [develop, main]
+
+jobs:
+  commitlint:
+    name: Validate Conventional Commits
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: wagoid/commitlint-github-action@v6
+        with:
+          configFile: commitlint.config.mjs
