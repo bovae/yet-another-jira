@@ -1,0 +1,24 @@
+# Build output (rebuilt inside the image; never ship host artifacts)
+target/
+
+# Version control
+.git/
+.gitignore
+.gitattributes
+
+# IDE / editor metadata
+.idea/
+*.iml
+.vscode/
+*.swp
+.DS_Store
+
+# Docker / compose files (not needed inside the build context)
+Dockerfile
+.dockerignore
+
+# Logs and local scratch
+*.log
+
+# OS / misc
+Thumbs.db

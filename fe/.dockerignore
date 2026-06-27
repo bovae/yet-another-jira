@@ -1,0 +1,31 @@
+# Dependencies (reinstalled inside the image from the lockfile)
+node_modules/
+
+# Build output (rebuilt inside the image; never ship host artifacts)
+dist/
+
+# Test / tooling output
+test-results/
+playwright-report/
+coverage/
+
+# Version control
+.git/
+.gitignore
+.gitattributes
+
+# IDE / editor metadata
+.idea/
+.vscode/
+*.swp
+.DS_Store
+
+# Docker files (not needed inside the build context)
+Dockerfile
+.dockerignore
+
+# Logs and local scratch
+*.log
+
+# OS / misc
+Thumbs.db
