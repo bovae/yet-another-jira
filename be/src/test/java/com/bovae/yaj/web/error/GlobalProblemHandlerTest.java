@@ -1,20 +1,32 @@
 package com.bovae.yaj.web.error;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.bovae.yaj.error.ConflictException;
+import com.bovae.yaj.error.NotFoundException;
+import com.bovae.yaj.error.UnauthorizedException;
+import com.bovae.yaj.error.ValidationException;
 import com.bovae.yaj.support.CorrelationId;
 import com.bovae.yaj.web.filter.CorrelationIdFilter;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import java.time.Instant;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.slf4j.MDC;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -82,9 +94,8 @@ class GlobalProblemHandlerTest {
         String body = result.getResponse().getContentAsString();
         // timestamp must end with 'Z' (UTC) and parse as an ISO-8601 instant
         String timestamp = extractJsonField(body, "timestamp");
-        java.time.Instant.parse(timestamp); // throws if not valid ISO-8601
-        org.junit.jupiter.api.Assertions.assertTrue(
-                timestamp.endsWith("Z"), "timestamp must be UTC (end with Z): " + timestamp);
+        Instant.parse(timestamp); // throws if not valid ISO-8601
+        assertTrue(timestamp.endsWith("Z"), "timestamp must be UTC (end with Z): " + timestamp);
     }
 
     // --- no internals leaked ---
@@ -96,14 +107,10 @@ class GlobalProblemHandlerTest {
 
         String body = result.getResponse().getContentAsString();
 
-        org.junit.jupiter.api.Assertions.assertFalse(
-                body.contains("SECRET_INTERNAL_DB_FAILURE"), "response body must not leak exception message");
-        org.junit.jupiter.api.Assertions.assertFalse(
-                body.contains("at com.bovae"), "response body must not leak stack trace");
-        org.junit.jupiter.api.Assertions.assertFalse(
-                body.contains(".java:"), "response body must not leak stack trace line references");
-        org.junit.jupiter.api.Assertions.assertFalse(
-                body.contains("SELECT"), "response body must not leak SQL statements");
+        assertFalse(body.contains("SECRET_INTERNAL_DB_FAILURE"), "response body must not leak exception message");
+        assertFalse(body.contains("at com.bovae"), "response body must not leak stack trace");
+        assertFalse(body.contains(".java:"), "response body must not leak stack trace line references");
+        assertFalse(body.contains("SELECT"), "response body must not leak SQL statements");
     }
 
     @Test
@@ -113,11 +120,9 @@ class GlobalProblemHandlerTest {
 
         String body = result.getResponse().getContentAsString();
 
-        org.junit.jupiter.api.Assertions.assertFalse(
-                body.contains("SELECT * FROM users"), "response body must not leak SQL");
-        org.junit.jupiter.api.Assertions.assertFalse(
-                body.contains("PSQLException"), "response body must not leak internal exception types");
-        org.junit.jupiter.api.Assertions.assertEquals(500, result.getResponse().getStatus());
+        assertFalse(body.contains("SELECT * FROM users"), "response body must not leak SQL");
+        assertFalse(body.contains("PSQLException"), "response body must not leak internal exception types");
+        assertEquals(500, result.getResponse().getStatus());
     }
 
     // --- correlationId from header ---
@@ -167,6 +172,62 @@ class GlobalProblemHandlerTest {
                 .andExpect(jsonPath("$.timestamp").isNotEmpty());
     }
 
+    // --- domain-exception → status mapping ---
+
+    static Stream<Arguments> domainExceptionStatusCases() {
+        return Stream.of(
+                Arguments.of("/test/throw-not-found", 404, "NotFoundException"),
+                Arguments.of("/test/throw-conflict", 409, "ConflictException"),
+                Arguments.of("/test/throw-validation", 400, "ValidationException"),
+                Arguments.of("/test/throw-unauthorized", 401, "UnauthorizedException"));
+    }
+
+    @ParameterizedTest(name = "{2} → HTTP {1}")
+    @MethodSource("domainExceptionStatusCases")
+    void handleException_shouldReturnExpectedStatus_whenDomainExceptionThrown(
+            String path, int expectedStatus, String exceptionName) throws Exception {
+        mockMvc.perform(get(path).header(CorrelationId.HEADER, TEST_CORRELATION_ID))
+                .andExpect(status().is(expectedStatus))
+                .andExpect(content().contentTypeCompatibleWith(PROBLEM_JSON))
+                .andExpect(jsonPath("$.status").value(expectedStatus));
+    }
+
+    // --- body enrichment, detail, and non-leakage for domain exceptions ---
+
+    static Stream<Arguments> domainExceptionBodyCases() {
+        return Stream.of(
+                Arguments.of("/test/throw-not-found", 404, "entity not found"),
+                Arguments.of("/test/throw-conflict", 409, "resource already exists"),
+                Arguments.of("/test/throw-validation", 400, "invalid input"),
+                Arguments.of("/test/throw-unauthorized", 401, "not authenticated"));
+    }
+
+    @ParameterizedTest(name = "path={0} → status={1}, detail=\"{2}\"")
+    @MethodSource("domainExceptionBodyCases")
+    void handleException_shouldEnrichBodyAndNotLeakInternals_whenDomainExceptionThrown(
+            String path, int expectedStatus, String expectedDetail) throws Exception {
+        MvcResult result = mockMvc.perform(get(path).header(CorrelationId.HEADER, TEST_CORRELATION_ID))
+                .andExpect(status().is(expectedStatus))
+                .andExpect(jsonPath("$.correlationId").value(TEST_CORRELATION_ID))
+                .andExpect(jsonPath("$.timestamp").isNotEmpty())
+                .andExpect(jsonPath("$.detail").value(expectedDetail))
+                .andReturn();
+
+        // timestamp must be UTC (ends with Z)
+        String body = result.getResponse().getContentAsString();
+        String timestamp = extractJsonField(body, "timestamp");
+        assertTrue(timestamp.endsWith("Z"), "timestamp must be UTC (end with Z): " + timestamp);
+
+        // non-leakage: no stack traces, internal type names, or SQL fragments
+        assertFalse(body.contains("at com.bovae"), "response body must not leak stack trace");
+        assertFalse(body.contains("NotFoundException"), "response body must not leak exception type name");
+        assertFalse(body.contains("ConflictException"), "response body must not leak exception type name");
+        assertFalse(body.contains("ValidationException"), "response body must not leak exception type name");
+        assertFalse(body.contains("UnauthorizedException"), "response body must not leak exception type name");
+        assertFalse(body.contains("SELECT"), "response body must not leak SQL fragments");
+        assertFalse(body.contains("INSERT"), "response body must not leak SQL fragments");
+    }
+
     // --- title enrichment for an untitled body (covers the reason-phrase fallback) ---
 
     @ParameterizedTest(name = "status={0} -> title \"{1}\"")
@@ -181,9 +242,8 @@ class GlobalProblemHandlerTest {
                 new RuntimeException("boom"), untitledBody, new HttpHeaders(), statusCode, request);
 
         ProblemDetail body = (ProblemDetail) response.getBody();
-        org.junit.jupiter.api.Assertions.assertNotNull(body, "handler must return a ProblemDetail body");
-        org.junit.jupiter.api.Assertions.assertEquals(
-                expectedTitle, body.getTitle(), "title must fall back to the status reason phrase (or 'Error')");
+        assertNotNull(body, "handler must return a ProblemDetail body");
+        assertEquals(expectedTitle, body.getTitle(), "title must fall back to the status reason phrase (or 'Error')");
     }
 
     // --- helpers ---
@@ -214,6 +274,26 @@ class GlobalProblemHandlerTest {
         public void throwSql() {
             throw new RuntimeException(
                     "org.postgresql.util.PSQLException: ERROR: SELECT * FROM users WHERE id = 'internal-uuid-123'");
+        }
+
+        @GetMapping("/test/throw-not-found")
+        public void throwNotFound() {
+            throw new NotFoundException("entity not found");
+        }
+
+        @GetMapping("/test/throw-conflict")
+        public void throwConflict() {
+            throw new ConflictException("resource already exists");
+        }
+
+        @GetMapping("/test/throw-validation")
+        public void throwValidation() {
+            throw new ValidationException("invalid input");
+        }
+
+        @GetMapping("/test/throw-unauthorized")
+        public void throwUnauthorized() {
+            throw new UnauthorizedException("not authenticated");
         }
 
         @GetMapping("/test/return-404")

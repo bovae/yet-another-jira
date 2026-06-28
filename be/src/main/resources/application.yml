@@ -10,7 +10,7 @@ spring:
   jpa:
     open-in-view: false
     hibernate:
-      ddl-auto: none
+      ddl-auto: validate
 
   # Disable static resource mappings so unknown routes raise NoHandlerFoundException.
   web:

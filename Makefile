@@ -10,7 +10,7 @@ down:
 	docker compose down
 
 be-test:
-	cd $(BE_DIR) && ./mvnw test
+	cd $(BE_DIR) && ./mvnw test -Pbdd,it
 
 # Mirrors CI's backend checks: format + Error Prone (compile) + unit & BDD tests + 90% coverage
 # gate. The coverage gate needs BDD coverage, so the bdd/it profiles are required (BDD uses

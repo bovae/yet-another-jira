@@ -43,14 +43,14 @@ file at the repository root.
 
 ### Backend Environment Variables
 
-| Variable                    | Purpose                                      | Default in Compose              |
-|-----------------------------|----------------------------------------------|---------------------------------|
-| `YAJ_DATASOURCE_URL`       | JDBC connection URL for PostgreSQL           | `jdbc:postgresql://postgres:5432/yaj` |
-| `YAJ_DATASOURCE_USERNAME`  | Database username                            | `yaj`                           |
-| `YAJ_DATASOURCE_PASSWORD`  | Database password                            | `yaj`                           |
-| `YAJ_VALKEY_HOST`          | Hostname of the Valkey instance              | `valkey`                        |
-| `YAJ_VALKEY_PORT`          | Port of the Valkey instance                  | `6379`                          |
-| `YAJ_CORS_ALLOWED_ORIGINS` | Comma-separated CORS allowed origins         | `http://localhost:8081`         |
+| Variable                   | Purpose                              | Default in Compose                                           |
+|----------------------------|--------------------------------------|--------------------------------------------------------------|
+| `YAJ_DATASOURCE_URL`       | JDBC connection URL for PostgreSQL   | `jdbc:postgresql://postgres:5432/yaj?stringtype=unspecified` |
+| `YAJ_DATASOURCE_USERNAME`  | Database username                    | `yaj`                                                        |
+| `YAJ_DATASOURCE_PASSWORD`  | Database password                    | `yaj`                                                        |
+| `YAJ_VALKEY_HOST`          | Hostname of the Valkey instance      | `valkey`                                                     |
+| `YAJ_VALKEY_PORT`          | Port of the Valkey instance          | `6379`                                                       |
+| `YAJ_CORS_ALLOWED_ORIGINS` | Comma-separated CORS allowed origins | `http://localhost:8081`                                      |
 
 ### PostgreSQL Service Variables
 
