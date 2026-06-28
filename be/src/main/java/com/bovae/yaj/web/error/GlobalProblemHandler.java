@@ -1,5 +1,9 @@
 package com.bovae.yaj.web.error;
 
+import com.bovae.yaj.error.ConflictException;
+import com.bovae.yaj.error.NotFoundException;
+import com.bovae.yaj.error.UnauthorizedException;
+import com.bovae.yaj.error.ValidationException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -24,6 +28,26 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
 @RestControllerAdvice
 public class GlobalProblemHandler extends ResponseEntityExceptionHandler {
 
+    @ExceptionHandler(NotFoundException.class)
+    public ResponseEntity<Object> handleNotFound(NotFoundException ex, WebRequest request) {
+        return domainProblem(HttpStatus.NOT_FOUND, "Not Found", ex, request);
+    }
+
+    @ExceptionHandler(ConflictException.class)
+    public ResponseEntity<Object> handleConflict(ConflictException ex, WebRequest request) {
+        return domainProblem(HttpStatus.CONFLICT, "Conflict", ex, request);
+    }
+
+    @ExceptionHandler(ValidationException.class)
+    public ResponseEntity<Object> handleValidation(ValidationException ex, WebRequest request) {
+        return domainProblem(HttpStatus.BAD_REQUEST, "Validation Failed", ex, request);
+    }
+
+    @ExceptionHandler(UnauthorizedException.class)
+    public ResponseEntity<Object> handleUnauthorized(UnauthorizedException ex, WebRequest request) {
+        return domainProblem(HttpStatus.UNAUTHORIZED, "Unauthorized", ex, request);
+    }
+
     /**
      * Maps any otherwise-unhandled exception to a generic 500 that excludes internals from the body;
      * the cause is recorded only in the correlated server log.
@@ -36,6 +60,12 @@ public class GlobalProblemHandler extends ResponseEntityExceptionHandler {
         body.setTitle("Internal Server Error");
         // Common members (correlationId, timestamp) are applied once, centrally, in handleExceptionInternal.
         return handleExceptionInternal(ex, body, new HttpHeaders(), HttpStatus.INTERNAL_SERVER_ERROR, request);
+    }
+
+    private ResponseEntity<Object> domainProblem(
+            HttpStatus status, String title, RuntimeException ex, WebRequest request) {
+        ProblemDetail body = ProblemDetailFactory.create(status, title, ex.getMessage());
+        return handleExceptionInternal(ex, body, new HttpHeaders(), status, request);
     }
 
     /** Single enrichment point: adds the common members to every problem body and titles validation failures. */

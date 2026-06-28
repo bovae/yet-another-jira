@@ -21,7 +21,7 @@ ESLint/Prettier, Vitest, Playwright).
 Tracking checklist — tick each epic as it lands (`[ ]` → `[x]`). Details for each
 are in the [Epic Catalog](#3-epic-catalog-major-one-by-one).
 
-- [ ] **E0** — Backend domain foundation
+- [x] **E0** — Backend domain foundation
 - [ ] **E1** — Sign-up + password hashing
 - [ ] **E2** — Email verification + resend
 - [ ] **E3** — Login / logout (JWT + denylist)
@@ -252,7 +252,7 @@ logout); BDD: signup→verify→login→authed call→logout→token rejected.
   expiry, reject denylisted `jti`, populate the `SecurityContext`.
 - `SecurityConfig`: **all** `/api/v1/**` require authentication **except**
   `/api/v1/auth/signup`, `/login`, `/verify`, `/verification/resend`; keep
-  `/actuator/health` and static assets public. Remove the `SKELETON ONLY` warning.
+  the public `/actuator/health`/readiness probes and static assets public. Remove the `SKELETON ONLY` warning.
 - A `CurrentUser` accessor (resolves the authenticated user id for `created_by` /
   comment `author`).
 - Unauthenticated/invalid-token requests → RFC 9457 `401` (not a redirect).
@@ -372,6 +372,7 @@ client, the Vercel design system from `DESIGN.md`.
 - Apply the design tokens (colors/typography/spacing) from `DESIGN.md`; header with
   collapsed user menu including **Log out**.
 - Loading / empty / success / error states as a reusable pattern.
+- **Compatibility (§11):** target a current desktop version of Chrome.
 **DoD:** Vitest for the guard (redirects when unauthenticated) and the client
 (adds bearer header, handles 401).
 
@@ -382,8 +383,9 @@ client, the Vercel design system from `DESIGN.md`.
 **Scope:** sign-up, login, email-verification result, resend action.
 
 - Sign-up form (email + password, client hints but server is authoritative);
-  login; verification-result screen (success → link to login); resend verification
-  for unverified/expired-token cases.
+  login; verification-result screen (success → link to login). A
+  resend-verification action is reachable from **both** the login and
+  verification-result screens (unverified or expired-token cases).
 - Show loading/success/error states; surface backend validation messages.
 **DoD:** Vitest for each form (submit, error rendering); a Playwright happy-path
 (sign-up → verify via test inbox → login) in integration (E15/Batch 11).
@@ -477,14 +479,25 @@ before the matching FE screens so the UI integrates against real endpoints.
   via UI/API.
 - **Testing (§11):** ≥1 backend business flow (BDD) and ≥1 FE/API flow
   (Vitest/Playwright) — exceeded by the per-epic tests above.
-- **Definition of Done (§13):** verified at Batch 11.
+- **Maintainability (§11):** the README documents prerequisites, configuration
+  (env vars + how secrets are supplied), and startup commands.
+- **Concurrency (§9):** no concurrent-edit conflict detection — last successful
+  write wins (intentionally out of scope).
+- **Definition of Done (§13):** every item verified at Batch 11; each epic also
+  carries its own DoD.
 
 ---
 
-## 6. Out of scope (do not build) — §12
+## 6. Non-goals — do not build (§12)
 
-Scrum/sprints/backlogs/story points/burndown; SSO/OAuth/social login; roles/admins/
-team membership/private teams/per-ticket access; attachments/notifications/mentions/
-watchers/audit history/real-time updates; custom workflows/types/subtasks/
-dependencies/time-tracking/reporting. Stretch (optional, §14): password reset,
+Kept as a short guardrail so the build doesn't drift into work the requirements
+exclude; it mirrors §12/§14 of `yet-another-jira.md`.
+
+**Do not build:** Scrum/sprints/backlogs/story points/burndown; SSO/OAuth/social
+login; roles/admins/team membership/private teams/per-ticket access;
+attachments/notifications/mentions/watchers/audit history/real-time updates;
+custom workflows/types/subtasks/dependencies/time-tracking/reporting; production
+deployment, high availability, production-grade mail infrastructure.
+
+**Stretch (optional, §14) — not scheduled in the batches above:** password reset,
 edit/delete own comments, ticket activity history, virtualized board rendering.

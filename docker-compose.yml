@@ -35,7 +35,9 @@ services:
       valkey:
         condition: service_healthy
     environment:
-      YAJ_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-yaj}
+      # stringtype=unspecified lets PostgreSQL infer the bind-parameter type so String
+      # comparisons against citext columns (users.email, teams.name) stay case-insensitive.
+      YAJ_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-yaj}?stringtype=unspecified
       YAJ_DATASOURCE_USERNAME: ${POSTGRES_USER:-yaj}
       YAJ_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-yaj}
       YAJ_VALKEY_HOST: valkey
