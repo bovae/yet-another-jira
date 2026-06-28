@@ -1,8 +1,6 @@
 name: Release
 
 on:
-  push:
-    branches: [develop, main]
   workflow_dispatch:
 
 # Serialize releases per branch so two quick pushes can't race on the release
