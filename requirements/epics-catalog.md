@@ -22,7 +22,7 @@ Tracking checklist — tick each epic as it lands (`[ ]` → `[x]`). Details for
 are in the [Epic Catalog](#3-epic-catalog-major-one-by-one).
 
 - [x] **E0** — Backend domain foundation
-- [ ] **E1** — Sign-up + password hashing
+- [x] **E1** — Sign-up + password hashing
 - [ ] **E2** — Email verification + resend
 - [ ] **E3** — Login / logout (JWT + denylist)
 - [ ] **E4** — AuthN/AuthZ enforcement + current-user
