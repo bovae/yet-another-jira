@@ -5,9 +5,11 @@ import java.util.Arrays;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.lang.Nullable;
 
+@RequiredArgsConstructor
 public enum TicketState {
     NEW("new", 1),
     READY_FOR_IMPLEMENTATION("ready_for_implementation", 2),
@@ -20,11 +22,6 @@ public enum TicketState {
 
     private final String code;
     private final int position;
-
-    TicketState(String code, int position) {
-        this.code = code;
-        this.position = position;
-    }
 
     public String code() {
         return code;

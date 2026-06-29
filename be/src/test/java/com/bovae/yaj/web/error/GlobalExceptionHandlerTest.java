@@ -45,7 +45,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.context.request.ServletWebRequest;
 import org.springframework.web.context.request.WebRequest;
 
-class GlobalProblemHandlerTest {
+class GlobalExceptionHandlerTest {
 
     private static final String TEST_CORRELATION_ID = "123e4567-e89b-12d3-a456-426614174000";
     private static final MediaType PROBLEM_JSON = MediaType.valueOf("application/problem+json");
@@ -55,7 +55,7 @@ class GlobalProblemHandlerTest {
     @BeforeEach
     void setUp() {
         mockMvc = MockMvcBuilders.standaloneSetup(new ThrowingController())
-                .setControllerAdvice(new GlobalProblemHandler())
+                .setControllerAdvice(new GlobalExceptionHandler())
                 .addFilter(new CorrelationIdFilter())
                 .build();
     }
@@ -233,7 +233,7 @@ class GlobalProblemHandlerTest {
     @ParameterizedTest(name = "status={0} -> title \"{1}\"")
     @CsvSource({"502, Bad Gateway", "299, Error"})
     void handleExceptionInternal_shouldDeriveTitleFromStatus_whenBodyHasNoTitle(int status, String expectedTitle) {
-        GlobalProblemHandler handler = new GlobalProblemHandler();
+        GlobalExceptionHandler handler = new GlobalExceptionHandler();
         HttpStatusCode statusCode = HttpStatusCode.valueOf(status);
         ProblemDetail untitledBody = ProblemDetail.forStatus(statusCode); // no title set
         WebRequest request = new ServletWebRequest(new MockHttpServletRequest());

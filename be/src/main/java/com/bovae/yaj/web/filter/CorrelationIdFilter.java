@@ -17,8 +17,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 /**
  * Establishes the per-request correlation id: uses the client {@code X-Correlation-Id} header when
  * it is a valid UUID (rejecting non-UUID values blocks log forging), else generates one. Puts it in
- * the MDC and echoes it on the response header, including error paths. MDC cleanup is owned by the
- * outermost {@code MdcCleanupFilter}, not this filter.
+ * the MDC and echoes it on the response header, including error paths.
  */
 @Component
 @Order(Ordered.HIGHEST_PRECEDENCE + 1)

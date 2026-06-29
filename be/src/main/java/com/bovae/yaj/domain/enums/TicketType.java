@@ -5,9 +5,11 @@ import java.util.Arrays;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.lang.Nullable;
 
+@RequiredArgsConstructor
 public enum TicketType {
     BUG("bug"),
     FEATURE("feature"),
@@ -17,10 +19,6 @@ public enum TicketType {
             Arrays.stream(values()).collect(Collectors.toUnmodifiableMap(TicketType::code, Function.identity()));
 
     private final String code;
-
-    TicketType(String code) {
-        this.code = code;
-    }
 
     public String code() {
         return code;

@@ -57,7 +57,7 @@ persistence expectations, and §11 non-functional requirements).
 - **Ticket_Type_Code**: A string value equal to one of the `ticket_types.code` values: `bug`, `feature`, `fix`.
 - **Ticket_State_Code**: A string value equal to one of the `ticket_states.code` values: `new`, `ready_for_implementation`, `in_progress`, `ready_for_acceptance`, `done`.
 - **Domain_Error_Model**: The domain exception hierarchy (`NotFoundException`, `ConflictException`, `ValidationException`, `UnauthorizedException`) residing in the `com.bovae.yaj.error` package.
-- **Problem_Handler**: The existing `com.bovae.yaj.web.error.GlobalProblemHandler` (`@RestControllerAdvice`) that produces RFC 9457 problem responses.
+- **Problem_Handler**: The existing `com.bovae.yaj.web.error.GlobalExceptionHandler` (`@RestControllerAdvice`) that produces RFC 9457 problem responses.
 - **Problem_Detail_Factory**: The existing `com.bovae.yaj.web.error.ProblemDetailFactory` that builds and enriches problem details with a `correlationId` and a UTC `timestamp`.
 - **Current_User_Provider**: The current-user seam: an abstraction that exposes the authenticated user identifier for later epics to consume.
 - **Project_Build**: The Maven build for the `be` module, including the Spotless, Error Prone with NullAway, and JaCoCo quality gates.

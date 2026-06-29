@@ -16,9 +16,7 @@ public class ValkeyStartupValidator implements InitializingBean {
 
     @Override
     public void afterPropertiesSet() {
-        RedisConnection connection = null;
-        try {
-            connection = connectionFactory.getConnection();
+        try (RedisConnection connection = connectionFactory.getConnection()) {
             connection.ping();
             LOG.info("Valkey connectivity verified at startup.");
         } catch (RuntimeException ex) {
@@ -26,10 +24,6 @@ public class ValkeyStartupValidator implements InitializingBean {
                     "Valkey is unreachable at startup within " + ValkeyConfig.STARTUP_TIMEOUT.toSeconds()
                             + "s; verify the 'yaj.valkey.host'/'yaj.valkey.port' configuration and that Valkey is running.",
                     ex);
-        } finally {
-            if (connection != null) {
-                connection.close();
-            }
         }
     }
 }
