@@ -1,13 +1,14 @@
 /// <reference types="vitest/config" />
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import tailwindcss from '@tailwindcss/vite'
 
 // Dev server proxies /api to the backend. Override with VITE_API_PROXY_TARGET
 // (localhost:8080 locally, be:8080 inside docker compose).
 const apiProxyTarget = process.env.VITE_API_PROXY_TARGET ?? 'http://localhost:8080'
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [tailwindcss(), react()],
   server: {
     port: 5173,
     proxy: {

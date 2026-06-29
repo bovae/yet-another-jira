@@ -2,6 +2,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import App from './App.tsx'
+import './index.css'
 
 // Bound retries so a hard failure surfaces the board's error state promptly,
 // instead of after TanStack Query's default of 3 retries — each gated by the
