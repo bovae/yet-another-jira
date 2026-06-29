@@ -1,5 +1,14 @@
 # yet-another-jira
 
+![Java](https://img.shields.io/badge/Java-21-007396?logo=openjdk&logoColor=white)
+![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.5-6DB33F?logo=springboot&logoColor=white)
+![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)
+![TypeScript](https://img.shields.io/badge/TypeScript-6-3178C6?logo=typescript&logoColor=white)
+![Vite](https://img.shields.io/badge/Vite-8-646CFF?logo=vite&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?logo=postgresql&logoColor=white)
+![Valkey](https://img.shields.io/badge/Valkey-Redis--compatible-FF4438?logo=redis&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)
+
 A Kanban-style ticket tracker delivered as a three-tier application: a React SPA
 (frontend), a Spring Boot HTTP API (backend), and a PostgreSQL database, with
 Valkey as a supporting ephemeral store.
@@ -25,11 +34,11 @@ starts, and the backend must be healthy before the frontend starts.
 
 ### Access URLs
 
-| Service          | URL                                    |
-|------------------|----------------------------------------|
-| Frontend (SPA)   | http://localhost:8081                   |
-| Backend API      | http://localhost:8081/api/v1/mock/board |
-| Actuator Health  | http://localhost:8080/actuator/health   |
+| Service         | URL                                     |
+|-----------------|-----------------------------------------|
+| Frontend (SPA)  | http://localhost:8081                   |
+| Backend API     | http://localhost:8081/api/v1/mock/board |
+| Actuator Health | http://localhost:8080/actuator/health   |
 
 > The frontend nginx proxies `/api` requests to the backend internally. Direct
 > backend access on port 8080 is available from the host for debugging.
@@ -54,11 +63,11 @@ file at the repository root.
 
 ### PostgreSQL Service Variables
 
-| Variable            | Purpose                        | Default in Compose |
-|---------------------|--------------------------------|--------------------|
-| `POSTGRES_DB`       | Database name created on init  | `yaj`              |
-| `POSTGRES_USER`     | Superuser name                 | `yaj`              |
-| `POSTGRES_PASSWORD` | Superuser password             | `yaj`              |
+| Variable            | Purpose                       | Default in Compose |
+|---------------------|-------------------------------|--------------------|
+| `POSTGRES_DB`       | Database name created on init | `yaj`              |
+| `POSTGRES_USER`     | Superuser name                | `yaj`              |
+| `POSTGRES_PASSWORD` | Superuser password            | `yaj`              |
 
 ## Optional Services
 

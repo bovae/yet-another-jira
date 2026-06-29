@@ -12,9 +12,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 /**
- * Outermost filter ({@link Ordered#HIGHEST_PRECEDENCE}) whose only job is to clear the MDC in a
- * {@code finally} after the whole chain returns, so no request-scoped context leaks into the pooled
- * thread's next request. It only clears — it never reads or sets the correlation id.
+ * Filter whose only job is to clear the MDC in a {@code finally} after the whole chain returns,
+ * so no request-scoped context leaks into the pooled thread's next request.
  */
 @Component
 @Order(Ordered.HIGHEST_PRECEDENCE)

@@ -357,7 +357,7 @@ public class NotFoundException extends RuntimeException {
 ```
 
 They are mapped to problem responses by **new `@ExceptionHandler` methods added to the existing**
-`com.bovae.yaj.web.error.GlobalProblemHandler` (these live in the non-excluded `web.error` package
+`com.bovae.yaj.web.error.GlobalExceptionHandler` (these live in the non-excluded `web.error` package
 and are unit-tested per Req 18.5). Each method builds the body through the existing
 `ProblemDetailFactory` and routes it through the advice's single enrichment point
 (`handleExceptionInternal` → `ProblemDetailFactory.applyCommonMembers`), so `correlationId` + UTC

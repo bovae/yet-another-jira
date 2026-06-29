@@ -136,7 +136,7 @@ Key invariants the tasks must not break:
     - _Requirements: 11.1, 11.2, 11.3, 11.4, 11.5, 12.1, 12.2, 12.3, 12.4, 12.5, 12.6, 13.1, 13.2, 13.3, 13.4_
 
 - [x] 6. Map the domain exceptions to RFC 9457 problem responses
-  - [x] 6.1 Add the four `@ExceptionHandler` methods to the existing `com.bovae.yaj.web.error.GlobalProblemHandler`
+  - [x] 6.1 Add the four `@ExceptionHandler` methods to the existing `com.bovae.yaj.web.error.GlobalExceptionHandler`
     - Map `NotFoundException`→404, `ConflictException`→409, `ValidationException`→400,
       `UnauthorizedException`→401 via a private `domainProblem(...)` helper that builds the body with
       `ProblemDetailFactory.create(status, title, ex.getMessage())` and routes through
