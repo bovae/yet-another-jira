@@ -90,7 +90,7 @@ TypeScript / React 19 (frontend).
     - _Requirements: 5.1, 5.2, 5.3_
     - _Validates Property 3 (Req 5.1, 5.2, 5.3)_
   - [x] 4.8 Implement the mock board endpoint
-    - Add `BoardView`/`BoardColumn`/`BoardCard` and `MockBoardController` (`GET /api/v1/mock/board`) returning exactly five columns ordered `new`, `ready_for_implementation`, `in_progress`, `ready_for_acceptance`, `done`, with hardcoded cards (each title 1–200 chars, type one of `bug`/`feature`/`fix`), reading no Application_Table
+    - Add `BoardView`/`BoardColumn`/`BoardCard` (under `com.bovae.yaj.web.dto`) and `MockBoardController` (under `com.bovae.yaj.web.controller`, `GET /api/v1/mock/board`) returning exactly five columns ordered `new`, `ready_for_implementation`, `in_progress`, `ready_for_acceptance`, `done`, with hardcoded cards (each title 1–200 chars, type one of `bug`/`feature`/`fix`), reading no Application_Table
     - _Requirements: 8.1, 8.2, 8.3, 8.4, 8.5, 2.2_
   - [x] 4.9 Write unit tests for MockBoardController
     - Assert exactly five columns in canonical workflow order, at least one card present, and card title/type constraints

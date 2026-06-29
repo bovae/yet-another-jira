@@ -190,8 +190,11 @@ com.bovae.yaj
 │   ├── filter/CorrelationIdFilter.java    # OncePerRequestFilter @ HIGHEST_PRECEDENCE+1: MDC put + response header
 │   ├── error/GlobalProblemHandler.java    # @RestControllerAdvice → RFC 9457
 │   ├── error/ProblemDetailFactory.java    # adds correlation-id + timestamp fields
-│   └── api/
-│       └── MockBoardController.java        # GET /api/v1/mock/board
+│   ├── controller/MockBoardController.java # GET /api/v1/mock/board
+│   └── dto/                                # board records (mock; removed by a later epic)
+│       ├── BoardView.java
+│       ├── BoardColumn.java
+│       └── BoardCard.java
 ├── domain/                                # (feature work) entities live here, JaCoCo-excluded under model/
 │   └── model/                             # JPA entities (excluded from coverage)
 ├── support/

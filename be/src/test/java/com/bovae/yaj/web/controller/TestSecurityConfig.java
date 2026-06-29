@@ -1,4 +1,4 @@
-package com.bovae.yaj.web.api;
+package com.bovae.yaj.web.controller;
 
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;

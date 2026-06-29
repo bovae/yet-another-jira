@@ -27,6 +27,11 @@ spring:
     change-log: classpath:db/changelog/db.changelog-master.yaml
 
 yaj:
+  signup:
+    min-password-length: 8
+    max-password-length: 128
+    min-email-length: 6
+    max-email-length: 254
   valkey:
     host: ${YAJ_VALKEY_HOST}
     port: ${YAJ_VALKEY_PORT}
