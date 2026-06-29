@@ -3,14 +3,21 @@ package com.bovae.yaj.web.controller;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.bovae.yaj.auth.SignupService;
+import com.bovae.yaj.auth.signup.SignupService;
+import com.bovae.yaj.auth.verification.EmailVerificationService;
+import com.bovae.yaj.auth.verification.VerificationResendService;
+import com.bovae.yaj.config.properties.VerificationProperties;
+import com.bovae.yaj.error.GoneException;
 import com.bovae.yaj.web.dto.SignupRequest;
 import com.bovae.yaj.web.dto.SignupResponse;
 import java.time.Instant;
@@ -31,17 +38,30 @@ import org.springframework.test.web.servlet.MvcResult;
 class AuthControllerTest {
 
     private static final String SIGNUP_URL = "/api/v1/auth/signup";
+    private static final String VERIFY_URL = "/api/v1/auth/verify";
+    private static final String RESEND_URL = "/api/v1/auth/verification/resend";
     private static final UUID TEST_ID = UUID.fromString("a1b2c3d4-e5f6-7890-abcd-ef1234567890");
     private static final Instant TEST_CREATED_AT = Instant.parse("2025-01-15T10:00:00Z");
     private static final String VALID_REQUEST_JSON =
             """
             {"email":"user@example.com","password":"securePass1"}""";
+    private static final String REDIRECT_URL = "https://example.com/login";
+    private static final String ERROR_REDIRECT_URL = "https://example.com/verify-error";
 
     @Autowired
     private MockMvc mockMvc;
 
     @MockitoBean
     private SignupService signupService;
+
+    @MockitoBean
+    private EmailVerificationService emailVerificationService;
+
+    @MockitoBean
+    private VerificationResendService verificationResendService;
+
+    @MockitoBean
+    private VerificationProperties verificationProperties;
 
     // --- 201 success ---
 
@@ -99,5 +119,69 @@ class AuthControllerTest {
                 .andExpect(status().isUnsupportedMediaType());
 
         verifyNoInteractions(signupService);
+    }
+
+    // --- GET /verify → 303 redirect ---
+
+    @Test
+    void verifyViaLink_shouldReturn303WithLocationAndNoCookie_whenServiceSucceeds() throws Exception {
+        when(verificationProperties.resultRedirectUrl()).thenReturn(REDIRECT_URL);
+
+        mockMvc.perform(get(VERIFY_URL).param("token", "some-token"))
+                .andExpect(status().is(303))
+                .andExpect(header().string("Location", REDIRECT_URL))
+                .andExpect(header().doesNotExist("Set-Cookie"));
+
+        verify(emailVerificationService).verify("some-token");
+    }
+
+    // --- GET /verify failure → 303 redirect to error page ---
+
+    @Test
+    void verifyViaLink_shouldRedirectToErrorUrl_whenVerificationFails() throws Exception {
+        when(verificationProperties.resultErrorRedirectUrl()).thenReturn(ERROR_REDIRECT_URL);
+        doThrow(new GoneException("invalid or expired"))
+                .when(emailVerificationService)
+                .verify("bad-token");
+
+        mockMvc.perform(get(VERIFY_URL).param("token", "bad-token"))
+                .andExpect(status().is(303))
+                .andExpect(header().string("Location", ERROR_REDIRECT_URL))
+                .andExpect(header().doesNotExist("Set-Cookie"));
+
+        verify(emailVerificationService).verify("bad-token");
+    }
+
+    // --- POST /verify → 200 JSON ---
+
+    @Test
+    void verifyPost_shouldReturn200WithJsonBody_whenServiceSucceeds() throws Exception {
+        mockMvc.perform(post(VERIFY_URL)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                        {"token":"some-token"}"""))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.verified").value(true))
+                .andExpect(jsonPath("$.message").value("Your email is verified. Please log in."))
+                .andExpect(jsonPath("$.next").value("login"))
+                .andExpect(header().doesNotExist("Set-Cookie"));
+
+        verify(emailVerificationService).verify("some-token");
+    }
+
+    // --- POST /verification/resend → 202 uniform body ---
+
+    @Test
+    void resend_shouldReturn202WithUniformBody_whenServiceCompletes() throws Exception {
+        mockMvc.perform(post(RESEND_URL)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                        {"email":"user@example.com"}"""))
+                .andExpect(status().isAccepted())
+                .andExpect(jsonPath("$.message")
+                        .value("If an unverified account exists for that address,"
+                                + " a new verification email has been sent."));
+
+        verify(verificationResendService).resend("user@example.com");
     }
 }

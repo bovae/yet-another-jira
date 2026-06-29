@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.bovae.yaj.domain.model.User;
 import com.bovae.yaj.domain.repository.UserRepository;
+import com.bovae.yaj.domain.repository.VerificationTokenRepository;
 import io.cucumber.java.After;
 import io.cucumber.java.en.And;
 import io.cucumber.java.en.Given;
@@ -18,6 +19,7 @@ import java.util.Optional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.test.web.server.LocalServerPort;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -31,13 +33,33 @@ public class SignupSteps {
     @Autowired
     private UserRepository userRepository;
 
+    @Autowired
+    private VerificationTokenRepository verificationTokenRepository;
+
+    @Autowired
+    private StringRedisTemplate stringRedisTemplate;
+
+    @Autowired
+    private SharedScenarioState sharedState;
+
     private String email;
     private String password;
     private ResponseEntity<String> response;
 
     @After("@auth")
     public void cleanup() {
+        verificationTokenRepository.deleteAll();
         userRepository.deleteAll();
+        try {
+            TestcontainersConfig.GREEN_MAIL.purgeEmailFromAllMailboxes();
+        } catch (com.icegreen.greenmail.store.FolderException e) {
+            throw new RuntimeException("Failed to purge GreenMail mailboxes", e);
+        }
+        // Clear Valkey rate-limit keys
+        var keys = stringRedisTemplate.keys("verif:resend:rl:*");
+        if (keys != null && !keys.isEmpty()) {
+            stringRedisTemplate.delete(keys);
+        }
     }
 
     @Given("a new user with email {string} and password {string}")
@@ -60,28 +82,34 @@ public class SignupSteps {
 
         response =
                 restTemplate.postForEntity("http://localhost:" + port + "/api/v1/auth/signup", request, String.class);
+        sharedState.setLastResponse(response);
     }
 
     @Then("the response status is {int}")
     public void theResponseStatusIs(int expectedStatus) {
-        assertNotNull(response, "Response should not be null");
-        assertEquals(expectedStatus, response.getStatusCode().value(), "HTTP status mismatch");
+        ResponseEntity<String> current = sharedState.getLastResponse();
+        assertNotNull(current, "Response should not be null");
+        assertEquals(expectedStatus, current.getStatusCode().value(), "HTTP status mismatch");
     }
 
     @And("the response body contains the email {string}")
     public void theResponseBodyContainsTheEmail(String expectedEmail) {
-        assertNotNull(response.getBody(), "Response body should not be null");
+        ResponseEntity<String> current = sharedState.getLastResponse();
+        assertNotNull(current, "Response should not be null");
+        assertNotNull(current.getBody(), "Response body should not be null");
         assertTrue(
-                response.getBody().contains("\"email\":\"" + expectedEmail + "\""),
-                "Response body should contain email. Body: " + response.getBody());
+                current.getBody().contains("\"email\":\"" + expectedEmail + "\""),
+                "Response body should contain email. Body: " + current.getBody());
     }
 
     @And("the response body shows emailVerified is false")
     public void theResponseBodyShowsEmailVerifiedIsFalse() {
-        assertNotNull(response.getBody(), "Response body should not be null");
+        ResponseEntity<String> current = sharedState.getLastResponse();
+        assertNotNull(current, "Response should not be null");
+        assertNotNull(current.getBody(), "Response body should not be null");
         assertTrue(
-                response.getBody().contains("\"emailVerified\":false"),
-                "Response body should show emailVerified=false. Body: " + response.getBody());
+                current.getBody().contains("\"emailVerified\":false"),
+                "Response body should show emailVerified=false. Body: " + current.getBody());
     }
 
     @And("the user exists in the database with email {string} and email_verified false")

@@ -1,7 +1,9 @@
 package com.bovae.yaj.web.error;
 
 import com.bovae.yaj.error.ConflictException;
+import com.bovae.yaj.error.GoneException;
 import com.bovae.yaj.error.NotFoundException;
+import com.bovae.yaj.error.RateLimitException;
 import com.bovae.yaj.error.UnauthorizedException;
 import com.bovae.yaj.error.ValidationException;
 import lombok.extern.slf4j.Slf4j;
@@ -39,6 +41,20 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(UnauthorizedException.class)
     public ResponseEntity<Object> handleUnauthorized(UnauthorizedException ex, WebRequest request) {
         return domainProblem(HttpStatus.UNAUTHORIZED, "Unauthorized", ex, request);
+    }
+
+    @ExceptionHandler(GoneException.class)
+    public ResponseEntity<Object> handleGone(GoneException ex, WebRequest request) {
+        return domainProblem(HttpStatus.GONE, "Gone", ex, request);
+    }
+
+    @ExceptionHandler(RateLimitException.class)
+    public ResponseEntity<Object> handleRateLimit(RateLimitException ex, WebRequest request) {
+        ProblemDetail body =
+                ProblemDetailFactory.create(HttpStatus.TOO_MANY_REQUESTS, "Too Many Requests", ex.getMessage());
+        HttpHeaders headers = new HttpHeaders();
+        headers.add(HttpHeaders.RETRY_AFTER, Long.toString(ex.getRetryAfterSeconds()));
+        return handleExceptionInternal(ex, body, headers, HttpStatus.TOO_MANY_REQUESTS, request);
     }
 
     /**
