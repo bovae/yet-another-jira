@@ -60,6 +60,16 @@ public class SignupSteps {
         if (keys != null && !keys.isEmpty()) {
             stringRedisTemplate.delete(keys);
         }
+        // Clear login rate-limit keys
+        var loginRlKeys = stringRedisTemplate.keys("auth:login:rl:*");
+        if (loginRlKeys != null && !loginRlKeys.isEmpty()) {
+            stringRedisTemplate.delete(loginRlKeys);
+        }
+        // Clear JWT denylist keys
+        var denylistKeys = stringRedisTemplate.keys("auth:jwt:denylist:*");
+        if (denylistKeys != null && !denylistKeys.isEmpty()) {
+            stringRedisTemplate.delete(denylistKeys);
+        }
     }
 
     @Given("a new user with email {string} and password {string}")

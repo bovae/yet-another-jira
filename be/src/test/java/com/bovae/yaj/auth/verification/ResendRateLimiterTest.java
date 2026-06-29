@@ -50,6 +50,8 @@ class ResendRateLimiterTest {
 
     @BeforeEach
     void setUp() {
+        when(verificationProperties.resendRateLimit()).thenReturn(RATE_LIMIT);
+        when(verificationProperties.resendRateWindow()).thenReturn(RATE_WINDOW);
         resendRateLimiter = new ResendRateLimiter(stringRedisTemplate, tokenHasher, verificationProperties);
     }
 
@@ -58,8 +60,6 @@ class ResendRateLimiterTest {
         when(stringRedisTemplate.opsForValue()).thenReturn(valueOperations);
         when(tokenHasher.hash(EMAIL)).thenReturn(HASHED_EMAIL);
         when(valueOperations.increment("verif:resend:rl:" + HASHED_EMAIL)).thenReturn(1L);
-        when(verificationProperties.resendRateWindow()).thenReturn(RATE_WINDOW);
-        when(verificationProperties.resendRateLimit()).thenReturn(RATE_LIMIT);
 
         assertDoesNotThrow(() -> resendRateLimiter.checkAndIncrement(EMAIL));
 
@@ -71,7 +71,6 @@ class ResendRateLimiterTest {
         when(stringRedisTemplate.opsForValue()).thenReturn(valueOperations);
         when(tokenHasher.hash(EMAIL)).thenReturn(HASHED_EMAIL);
         when(valueOperations.increment("verif:resend:rl:" + HASHED_EMAIL)).thenReturn(2L);
-        when(verificationProperties.resendRateLimit()).thenReturn(RATE_LIMIT);
 
         assertDoesNotThrow(() -> resendRateLimiter.checkAndIncrement(EMAIL));
 
@@ -84,7 +83,6 @@ class ResendRateLimiterTest {
         when(stringRedisTemplate.opsForValue()).thenReturn(valueOperations);
         when(tokenHasher.hash(EMAIL)).thenReturn(HASHED_EMAIL);
         when(valueOperations.increment(key)).thenReturn(6L);
-        when(verificationProperties.resendRateLimit()).thenReturn(RATE_LIMIT);
         when(stringRedisTemplate.getExpire(key, TimeUnit.SECONDS)).thenReturn(542L);
 
         RateLimitException ex =
@@ -99,9 +97,7 @@ class ResendRateLimiterTest {
         when(stringRedisTemplate.opsForValue()).thenReturn(valueOperations);
         when(tokenHasher.hash(EMAIL)).thenReturn(HASHED_EMAIL);
         when(valueOperations.increment(key)).thenReturn(6L);
-        when(verificationProperties.resendRateLimit()).thenReturn(RATE_LIMIT);
         when(stringRedisTemplate.getExpire(key, TimeUnit.SECONDS)).thenReturn(-1L);
-        when(verificationProperties.resendRateWindow()).thenReturn(RATE_WINDOW);
 
         RateLimitException ex =
                 assertThrows(RateLimitException.class, () -> resendRateLimiter.checkAndIncrement(EMAIL));
@@ -118,8 +114,6 @@ class ResendRateLimiterTest {
         when(stringRedisTemplate.opsForValue()).thenReturn(valueOperations);
         when(tokenHasher.hash(EMAIL)).thenReturn(HASHED_EMAIL);
         when(valueOperations.increment(keyCaptor.capture())).thenReturn(1L);
-        when(verificationProperties.resendRateWindow()).thenReturn(RATE_WINDOW);
-        when(verificationProperties.resendRateLimit()).thenReturn(RATE_LIMIT);
 
         resendRateLimiter.checkAndIncrement(EMAIL);
 
@@ -134,8 +128,6 @@ class ResendRateLimiterTest {
         when(stringRedisTemplate.opsForValue()).thenReturn(valueOperations);
         when(tokenHasher.hash("user@example.com")).thenReturn(HASHED_EMAIL);
         when(valueOperations.increment("verif:resend:rl:" + HASHED_EMAIL)).thenReturn(1L);
-        when(verificationProperties.resendRateWindow()).thenReturn(RATE_WINDOW);
-        when(verificationProperties.resendRateLimit()).thenReturn(RATE_LIMIT);
 
         resendRateLimiter.checkAndIncrement(mixedCase);
 

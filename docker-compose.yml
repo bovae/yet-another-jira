@@ -51,6 +51,7 @@ services:
       YAJ_VERIFICATION_LINK_BASE_URL: ${YAJ_VERIFICATION_LINK_BASE_URL:-http://localhost:8081/verify}
       YAJ_VERIFICATION_REDIRECT_URL: ${YAJ_VERIFICATION_REDIRECT_URL:-http://localhost:8081/login}
       YAJ_VERIFICATION_ERROR_REDIRECT_URL: ${YAJ_VERIFICATION_ERROR_REDIRECT_URL:-http://localhost:8081/verify-error}
+      YAJ_JWT_SECRET: ${YAJ_JWT_SECRET:-change-me-in-production-this-is-only-for-local-dev}
     healthcheck:
       test: ['CMD-SHELL', 'wget -q -O /dev/null http://localhost:8080/actuator/health || exit 1']
       interval: 10s

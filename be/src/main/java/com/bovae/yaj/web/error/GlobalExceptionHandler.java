@@ -1,6 +1,7 @@
 package com.bovae.yaj.web.error;
 
 import com.bovae.yaj.error.ConflictException;
+import com.bovae.yaj.error.ForbiddenException;
 import com.bovae.yaj.error.GoneException;
 import com.bovae.yaj.error.NotFoundException;
 import com.bovae.yaj.error.RateLimitException;
@@ -41,6 +42,11 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(UnauthorizedException.class)
     public ResponseEntity<Object> handleUnauthorized(UnauthorizedException ex, WebRequest request) {
         return domainProblem(HttpStatus.UNAUTHORIZED, "Unauthorized", ex, request);
+    }
+
+    @ExceptionHandler(ForbiddenException.class)
+    public ResponseEntity<Object> handleForbidden(ForbiddenException ex, WebRequest request) {
+        return domainProblem(HttpStatus.FORBIDDEN, "Forbidden", ex, request);
     }
 
     @ExceptionHandler(GoneException.class)

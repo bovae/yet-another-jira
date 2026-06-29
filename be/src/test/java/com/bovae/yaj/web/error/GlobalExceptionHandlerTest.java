@@ -11,6 +11,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.bovae.yaj.error.ConflictException;
+import com.bovae.yaj.error.ForbiddenException;
 import com.bovae.yaj.error.GoneException;
 import com.bovae.yaj.error.NotFoundException;
 import com.bovae.yaj.error.RateLimitException;
@@ -182,6 +183,7 @@ class GlobalExceptionHandlerTest {
                 Arguments.of("/test/throw-conflict", 409, "ConflictException"),
                 Arguments.of("/test/throw-validation", 400, "ValidationException"),
                 Arguments.of("/test/throw-unauthorized", 401, "UnauthorizedException"),
+                Arguments.of("/test/throw-forbidden", 403, "ForbiddenException"),
                 Arguments.of("/test/throw-gone", 410, "GoneException"),
                 Arguments.of("/test/throw-rate-limit", 429, "RateLimitException"));
     }
@@ -204,6 +206,7 @@ class GlobalExceptionHandlerTest {
                 Arguments.of("/test/throw-conflict", 409, "resource already exists"),
                 Arguments.of("/test/throw-validation", 400, "invalid input"),
                 Arguments.of("/test/throw-unauthorized", 401, "not authenticated"),
+                Arguments.of("/test/throw-forbidden", 403, "please verify your email address"),
                 Arguments.of("/test/throw-gone", 410, "verification link is invalid or expired"),
                 Arguments.of("/test/throw-rate-limit", 429, "rate limit exceeded"));
     }
@@ -230,10 +233,36 @@ class GlobalExceptionHandlerTest {
         assertFalse(body.contains("ConflictException"), "response body must not leak exception type name");
         assertFalse(body.contains("ValidationException"), "response body must not leak exception type name");
         assertFalse(body.contains("UnauthorizedException"), "response body must not leak exception type name");
+        assertFalse(body.contains("ForbiddenException"), "response body must not leak exception type name");
         assertFalse(body.contains("GoneException"), "response body must not leak exception type name");
         assertFalse(body.contains("RateLimitException"), "response body must not leak exception type name");
         assertFalse(body.contains("SELECT"), "response body must not leak SQL fragments");
         assertFalse(body.contains("INSERT"), "response body must not leak SQL fragments");
+    }
+
+    // --- ForbiddenException dedicated assertions (Req 14.2, 14.4, 14.5) ---
+
+    @Test
+    void handleForbidden_shouldNotLeakSensitiveMaterial_whenForbiddenExceptionThrown() throws Exception {
+        MvcResult result = mockMvc.perform(
+                        get("/test/throw-forbidden").header(CorrelationId.HEADER, TEST_CORRELATION_ID))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.status").value(403))
+                .andExpect(jsonPath("$.correlationId").value(TEST_CORRELATION_ID))
+                .andExpect(jsonPath("$.timestamp").isNotEmpty())
+                .andReturn();
+
+        String body = result.getResponse().getContentAsString();
+
+        // Req 14.5: no password, hash, secret, or token material
+        assertFalse(body.contains("password"), "response body must not contain password");
+        assertFalse(body.contains("hash"), "response body must not contain hash");
+        assertFalse(body.contains("secret"), "response body must not contain secret");
+        assertFalse(body.contains("token"), "response body must not contain token");
+        assertFalse(body.contains("at com.bovae"), "response body must not leak stack trace");
+        assertFalse(body.contains(".java:"), "response body must not leak stack trace line references");
+        assertFalse(body.contains("SELECT"), "response body must not leak SQL");
+        assertFalse(body.contains("ForbiddenException"), "response body must not leak exception type name");
     }
 
     // --- Retry-After header on rate-limit ---
@@ -328,6 +357,11 @@ class GlobalExceptionHandlerTest {
         @GetMapping("/test/throw-rate-limit")
         public void throwRateLimit() {
             throw new RateLimitException("rate limit exceeded", 60);
+        }
+
+        @GetMapping("/test/throw-forbidden")
+        public void throwForbidden() {
+            throw new ForbiddenException("please verify your email address");
         }
 
         @GetMapping("/test/return-404")

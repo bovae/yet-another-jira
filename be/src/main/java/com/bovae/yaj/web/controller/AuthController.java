@@ -1,11 +1,17 @@
 package com.bovae.yaj.web.controller;
 
+import com.bovae.yaj.auth.login.LoginService;
+import com.bovae.yaj.auth.logout.LogoutService;
+import com.bovae.yaj.auth.me.CurrentUserService;
 import com.bovae.yaj.auth.signup.SignupService;
 import com.bovae.yaj.auth.verification.EmailVerificationService;
 import com.bovae.yaj.auth.verification.VerificationResendService;
 import com.bovae.yaj.config.properties.VerificationProperties;
 import com.bovae.yaj.error.GoneException;
 import com.bovae.yaj.error.ValidationException;
+import com.bovae.yaj.web.dto.LoginRequest;
+import com.bovae.yaj.web.dto.LoginResponse;
+import com.bovae.yaj.web.dto.MeResponse;
 import com.bovae.yaj.web.dto.ResendRequest;
 import com.bovae.yaj.web.dto.ResendResponse;
 import com.bovae.yaj.web.dto.SignupRequest;
@@ -14,6 +20,7 @@ import com.bovae.yaj.web.dto.VerifyRequest;
 import com.bovae.yaj.web.dto.VerifyResponse;
 import java.net.URI;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -21,6 +28,7 @@ import org.springframework.lang.Nullable;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -35,6 +43,9 @@ public class AuthController {
     private final EmailVerificationService emailVerificationService;
     private final VerificationResendService verificationResendService;
     private final VerificationProperties verificationProperties;
+    private final LoginService loginService;
+    private final LogoutService logoutService;
+    private final CurrentUserService currentUserService;
 
     @PostMapping(
             value = "/signup",
@@ -78,5 +89,26 @@ public class AuthController {
     public ResendResponse resend(@RequestBody ResendRequest request) {
         verificationResendService.resend(request.email());
         return ResendResponse.uniform();
+    }
+
+    @PostMapping(
+            value = "/login",
+            consumes = MediaType.APPLICATION_JSON_VALUE,
+            produces = MediaType.APPLICATION_JSON_VALUE)
+    public LoginResponse login(@RequestBody LoginRequest request) {
+        return loginService.login(request);
+    }
+
+    @PostMapping("/logout")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void logout(
+            @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) @Nullable String authorization) {
+        logoutService.logout(authorization);
+    }
+
+    @GetMapping(value = "/me", produces = MediaType.APPLICATION_JSON_VALUE)
+    public MeResponse me(
+            @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) @Nullable String authorization) {
+        return currentUserService.me(authorization);
     }
 }

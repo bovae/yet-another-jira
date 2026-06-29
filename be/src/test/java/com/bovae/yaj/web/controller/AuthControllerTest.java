@@ -13,6 +13,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.bovae.yaj.auth.login.LoginService;
+import com.bovae.yaj.auth.logout.LogoutService;
+import com.bovae.yaj.auth.me.CurrentUserService;
 import com.bovae.yaj.auth.signup.SignupService;
 import com.bovae.yaj.auth.verification.EmailVerificationService;
 import com.bovae.yaj.auth.verification.VerificationResendService;
@@ -62,6 +65,15 @@ class AuthControllerTest {
 
     @MockitoBean
     private VerificationProperties verificationProperties;
+
+    @MockitoBean
+    private LoginService loginService;
+
+    @MockitoBean
+    private LogoutService logoutService;
+
+    @MockitoBean
+    private CurrentUserService currentUserService;
 
     // --- 201 success ---
 
