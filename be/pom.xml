@@ -431,6 +431,41 @@
       </dependencies>
       <build>
         <plugins>
+          <!-- Isolate the Cucumber suite from the shared (reused-fork) surefire JVM.
+               cucumber-spring's @CucumberContextConfiguration glue detection is sensitive to
+               state left behind by other tests sharing a reused fork; running the suite in its
+               own fork removes that ordering fragility so -Pbdd is reliable standalone, not only
+               with -Pbdd,it. Both executions inherit the plugin-level JaCoCo agent argLine, so
+               BDD coverage still appends into the shared jacoco.exec the 90% gate reads. -->
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-surefire-plugin</artifactId>
+            <executions>
+              <!-- Keep CucumberSuiteTest out of the default (reused-fork) run. -->
+              <execution>
+                <id>default-test</id>
+                <configuration>
+                  <excludes>
+                    <exclude>**/CucumberSuiteTest.java</exclude>
+                  </excludes>
+                </configuration>
+              </execution>
+              <!-- Run only CucumberSuiteTest, in a fresh fork of its own. -->
+              <execution>
+                <id>bdd-test</id>
+                <goals>
+                  <goal>test</goal>
+                </goals>
+                <phase>test</phase>
+                <configuration>
+                  <includes>
+                    <include>**/CucumberSuiteTest.java</include>
+                  </includes>
+                  <reuseForks>false</reuseForks>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
           <!-- Bind the dedicated BDD source set: src/bdd/java for
                          glue/runner code and src/bdd/resources for features. -->
           <plugin>
