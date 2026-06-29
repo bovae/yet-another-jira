@@ -1,4 +1,4 @@
-package com.bovae.yaj.auth;
+package com.bovae.yaj.auth.signup;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -11,6 +11,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import com.bovae.yaj.auth.verification.VerificationTokenIssuer;
 import com.bovae.yaj.config.properties.SignupProperties;
 import com.bovae.yaj.domain.model.User;
 import com.bovae.yaj.domain.repository.UserRepository;
@@ -54,6 +55,9 @@ class SignupServiceTest {
     @Mock
     private PasswordEncoder passwordEncoder;
 
+    @Mock
+    private VerificationTokenIssuer verificationTokenIssuer;
+
     @Captor
     private ArgumentCaptor<User> userCaptor;
 
@@ -61,7 +65,8 @@ class SignupServiceTest {
 
     @BeforeEach
     void setUp() {
-        signupService = new SignupService(userRepository, passwordEncoder, new SignupProperties(8, 128, 6, 254));
+        signupService = new SignupService(
+                userRepository, passwordEncoder, new SignupProperties(8, 128, 6, 254), verificationTokenIssuer);
     }
 
     // --- happy path ---
@@ -235,6 +240,36 @@ class SignupServiceTest {
         ConflictException ex = assertThrows(ConflictException.class, () -> signupService.signup(request));
 
         assertEquals("Email address is already registered.", ex.getMessage());
+    }
+
+    // --- verification token issuance ---
+
+    @Test
+    void signup_shouldInvokeIssuerAfterSave_whenSignupSucceeds() {
+        SignupRequest request = new SignupRequest("user@example.com", RAW_PASSWORD);
+        stubHappyPath("user@example.com");
+
+        signupService.signup(request);
+
+        verify(verificationTokenIssuer).issue(SAVED_ID, "user@example.com");
+    }
+
+    @Test
+    void signup_shouldNotPersistUser_whenIssuerFails() {
+        SignupRequest request = new SignupRequest("user@example.com", RAW_PASSWORD);
+        when(userRepository.findByEmail("user@example.com")).thenReturn(Optional.empty());
+        when(passwordEncoder.encode(RAW_PASSWORD)).thenReturn(HASHED_PASSWORD);
+        User savedUser = buildSavedUser("user@example.com");
+        when(userRepository.saveAndFlush(any())).thenReturn(savedUser);
+        RuntimeException issuerFailure = new RuntimeException("token persistence failed");
+        org.mockito.Mockito.doThrow(issuerFailure).when(verificationTokenIssuer).issue(SAVED_ID, "user@example.com");
+
+        RuntimeException thrown = assertThrows(RuntimeException.class, () -> signupService.signup(request));
+
+        assertEquals(
+                "token persistence failed",
+                thrown.getMessage(),
+                "issuer failure should propagate, triggering @Transactional rollback");
     }
 
     // --- encoder returns plaintext guard ---

@@ -23,7 +23,7 @@ are in the [Epic Catalog](#3-epic-catalog-major-one-by-one).
 
 - [x] **E0** — Backend domain foundation
 - [x] **E1** — Sign-up + password hashing
-- [ ] **E2** — Email verification + resend
+- [x] **E2** — Email verification + resend
 - [ ] **E3** — Login / logout (JWT + denylist)
 - [ ] **E4** — AuthN/AuthZ enforcement + current-user
 - [ ] **E5** — Teams CRUD + delete guard

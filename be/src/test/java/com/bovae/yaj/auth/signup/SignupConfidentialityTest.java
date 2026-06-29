@@ -1,4 +1,4 @@
-package com.bovae.yaj.auth;
+package com.bovae.yaj.auth.signup;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.mockito.Mockito.when;
@@ -6,6 +6,7 @@ import static org.mockito.Mockito.when;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
+import com.bovae.yaj.auth.verification.VerificationTokenIssuer;
 import com.bovae.yaj.config.properties.SignupProperties;
 import com.bovae.yaj.domain.model.User;
 import com.bovae.yaj.domain.repository.UserRepository;
@@ -41,13 +42,17 @@ class SignupConfidentialityTest {
     @Mock
     private PasswordEncoder passwordEncoder;
 
+    @Mock
+    private VerificationTokenIssuer verificationTokenIssuer;
+
     private SignupService signupService;
     private ListAppender<ILoggingEvent> logAppender;
     private Logger serviceLogger;
 
     @BeforeEach
     void setUp() {
-        signupService = new SignupService(userRepository, passwordEncoder, new SignupProperties(8, 128, 6, 254));
+        signupService = new SignupService(
+                userRepository, passwordEncoder, new SignupProperties(8, 128, 6, 254), verificationTokenIssuer);
 
         serviceLogger = (Logger) LoggerFactory.getLogger(SignupService.class);
         logAppender = new ListAppender<>();

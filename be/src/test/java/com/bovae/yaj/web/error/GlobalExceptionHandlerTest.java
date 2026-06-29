@@ -11,7 +11,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.bovae.yaj.error.ConflictException;
+import com.bovae.yaj.error.GoneException;
 import com.bovae.yaj.error.NotFoundException;
+import com.bovae.yaj.error.RateLimitException;
 import com.bovae.yaj.error.UnauthorizedException;
 import com.bovae.yaj.error.ValidationException;
 import com.bovae.yaj.support.CorrelationId;
@@ -179,7 +181,9 @@ class GlobalExceptionHandlerTest {
                 Arguments.of("/test/throw-not-found", 404, "NotFoundException"),
                 Arguments.of("/test/throw-conflict", 409, "ConflictException"),
                 Arguments.of("/test/throw-validation", 400, "ValidationException"),
-                Arguments.of("/test/throw-unauthorized", 401, "UnauthorizedException"));
+                Arguments.of("/test/throw-unauthorized", 401, "UnauthorizedException"),
+                Arguments.of("/test/throw-gone", 410, "GoneException"),
+                Arguments.of("/test/throw-rate-limit", 429, "RateLimitException"));
     }
 
     @ParameterizedTest(name = "{2} → HTTP {1}")
@@ -199,7 +203,9 @@ class GlobalExceptionHandlerTest {
                 Arguments.of("/test/throw-not-found", 404, "entity not found"),
                 Arguments.of("/test/throw-conflict", 409, "resource already exists"),
                 Arguments.of("/test/throw-validation", 400, "invalid input"),
-                Arguments.of("/test/throw-unauthorized", 401, "not authenticated"));
+                Arguments.of("/test/throw-unauthorized", 401, "not authenticated"),
+                Arguments.of("/test/throw-gone", 410, "verification link is invalid or expired"),
+                Arguments.of("/test/throw-rate-limit", 429, "rate limit exceeded"));
     }
 
     @ParameterizedTest(name = "path={0} → status={1}, detail=\"{2}\"")
@@ -224,8 +230,26 @@ class GlobalExceptionHandlerTest {
         assertFalse(body.contains("ConflictException"), "response body must not leak exception type name");
         assertFalse(body.contains("ValidationException"), "response body must not leak exception type name");
         assertFalse(body.contains("UnauthorizedException"), "response body must not leak exception type name");
+        assertFalse(body.contains("GoneException"), "response body must not leak exception type name");
+        assertFalse(body.contains("RateLimitException"), "response body must not leak exception type name");
         assertFalse(body.contains("SELECT"), "response body must not leak SQL fragments");
         assertFalse(body.contains("INSERT"), "response body must not leak SQL fragments");
+    }
+
+    // --- Retry-After header on rate-limit ---
+
+    @Test
+    void handleRateLimit_shouldIncludeRetryAfterHeader_whenRateLimitExceeded() throws Exception {
+        mockMvc.perform(get("/test/throw-rate-limit").header(CorrelationId.HEADER, TEST_CORRELATION_ID))
+                .andExpect(status().isTooManyRequests())
+                .andExpect(content().contentTypeCompatibleWith(PROBLEM_JSON))
+                .andExpect(jsonPath("$.status").value(429))
+                .andExpect(jsonPath("$.correlationId").value(TEST_CORRELATION_ID))
+                .andExpect(jsonPath("$.timestamp").isNotEmpty())
+                .andExpect(result -> assertEquals(
+                        "60",
+                        result.getResponse().getHeader(HttpHeaders.RETRY_AFTER),
+                        "Retry-After header must carry retryAfterSeconds from the exception"));
     }
 
     // --- title enrichment for an untitled body (covers the reason-phrase fallback) ---
@@ -294,6 +318,16 @@ class GlobalExceptionHandlerTest {
         @GetMapping("/test/throw-unauthorized")
         public void throwUnauthorized() {
             throw new UnauthorizedException("not authenticated");
+        }
+
+        @GetMapping("/test/throw-gone")
+        public void throwGone() {
+            throw new GoneException("verification link is invalid or expired");
+        }
+
+        @GetMapping("/test/throw-rate-limit")
+        public void throwRateLimit() {
+            throw new RateLimitException("rate limit exceeded", 60);
         }
 
         @GetMapping("/test/return-404")

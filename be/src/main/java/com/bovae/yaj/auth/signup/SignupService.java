@@ -1,5 +1,6 @@
-package com.bovae.yaj.auth;
+package com.bovae.yaj.auth.signup;
 
+import com.bovae.yaj.auth.verification.VerificationTokenIssuer;
 import com.bovae.yaj.config.properties.SignupProperties;
 import com.bovae.yaj.domain.model.User;
 import com.bovae.yaj.domain.repository.UserRepository;
@@ -24,6 +25,7 @@ public class SignupService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final SignupProperties signupProperties;
+    private final VerificationTokenIssuer verificationTokenIssuer;
 
     @Transactional
     public SignupResponse signup(SignupRequest request) {
@@ -47,6 +49,7 @@ public class SignupService {
 
         try {
             User saved = userRepository.saveAndFlush(user);
+            verificationTokenIssuer.issue(saved.getId(), saved.getEmail());
             LOG.info("Account created: userId={}", saved.getId());
             return SignupResponse.from(saved);
         } catch (DataIntegrityViolationException ex) {
