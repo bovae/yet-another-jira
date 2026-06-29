@@ -48,7 +48,7 @@ are in the [Epic Catalog](#3-epic-catalog-major-one-by-one).
 | BE cross-cutting | Correlation-id filter, MDC cleanup, RFC 9457 `ProblemDetailFactory`/`GlobalProblemHandler`, CORS from `CorsProperties`, Valkey wiring + startup ping, Actuator health | Done |
 | BE security | `SecurityConfig` = `permitAll()` + stateless + CSRF off (the seam to replace) | Seam only |
 | BE API | `GET /api/v1/mock/board` (hardcoded) | Mock — to remove |
-| FE | Vite + React 19 + TS, `apiFetch` (10s timeout), TanStack Query, `@dnd-kit` (inert), Vercel design tokens (`DESIGN.md`), board page rendering the mock | Scaffold |
+| FE | Vite + React 19 + TS, `apiFetch` (10s timeout), TanStack Query, `@dnd-kit` (inert), **Tailwind v4** encoding the `DESIGN.md` Vercel tokens via `@theme` (stock palette + type scale reset out), board page rendering the mock | Scaffold |
 | Tooling | docker-compose (incl. opt-in Mailpit), CI, semantic-release, Dependabot, pre-commit, Makefile | Done |
 
 **Decisions already locked (design.md):** stateless **JWT bearer** auth; **Valkey**
@@ -362,19 +362,32 @@ contract + guarantees.
 ### E11 — Frontend foundation (routing, auth context, design system)
 **Depends on:** E4 · **Requirement refs:** §10 (screens), §11 (states)
 **Scope:** app shell, client-side routing, auth/session context, authed API
-client, the Vercel design system from `DESIGN.md`.
+client, the Vercel design system from `DESIGN.md` (Tailwind v4, already in place),
+and the shadcn/ui primitive layer (introduced here).
 
 - Add a router; define routes for all minimum screens (§10). Guard business routes
   behind authentication; unauthenticated → login.
 - Auth context: store the JWT (in memory + refresh-safe storage that is **not** the
   system of record), attach `Authorization` to `apiFetch`, handle `401` globally
   (clear session → login).
-- Apply the design tokens (colors/typography/spacing) from `DESIGN.md`; header with
-  collapsed user menu including **Log out**.
+- **Styling — Tailwind v4 :** the `DESIGN.md`  tokens (colors/typography/spacing/radius)
+  are encoded in `fe/src/index.css` via `@theme`, with the stock palette + type scale
+  reset out, so build UI from token utilities only. No install needed — this entry
+  only records that the styling layer exists. **Follow-up:** bundle the Geist/Inter
+  webfonts (text currently falls back to `system-ui`; the `font-sans`/`font-mono`
+  tokens already point at the right stacks).
+- **Primitives — introduce shadcn/ui here:** run `shadcn init` as the source of
+  accessible interactive primitives (Dialog, DropdownMenu, Select, Popover,
+  Tooltip) consumed by E13–E15. **Bridge** shadcn's semantic tokens
+  (`--background`, `--foreground`, `--primary`, `--border`, `--ring`, `--radius`)
+  onto the `DESIGN.md` tokens — required because our `--color-*: initial` reset
+  means un-bridged shadcn classes render nothing. First consumer: the header
+  **collapsed user menu** (DropdownMenu) including **Log out**.
 - Loading / empty / success / error states as a reusable pattern.
 - **Compatibility (§11):** target a current desktop version of Chrome.
 **DoD:** Vitest for the guard (redirects when unauthenticated) and the client
-(adds bearer header, handles 401).
+(adds bearer header, handles 401); shadcn is set up and re-themed to `DESIGN.md`
+(the header user-menu dropdown opens and **Log out** fires).
 
 ---
 
@@ -394,7 +407,8 @@ client, the Vercel design system from `DESIGN.md`.
 
 ### E13 — FE team + epic management screens
 **Depends on:** E11 (+ E5, E6 contracts) · **Requirement refs:** §4, §5, §10
-**Scope:** team management + epic management screens.
+**Scope:** team management + epic management screens — create/edit in shadcn
+**Dialog**s with confirm-delete **AlertDialog**s and reference-aware disabled delete.
 
 - Teams: list, create, rename, delete. **Disable delete** when the team has epics/
   tickets (mirror the backend `409`), with a clear message.
@@ -406,7 +420,9 @@ client, the Vercel design system from `DESIGN.md`.
 
 ### E14 — FE ticket views + comments
 **Depends on:** E13 (+ E7, E8 contracts) · **Requirement refs:** §6, §7, §10
-**Scope:** ticket create / edit / details view + comment thread.
+**Scope:** ticket create / edit / details view + comment thread — create/edit
+**modal**, type/state/epic **Select**s, and a delete-confirm **AlertDialog**, all
+on shadcn primitives.
 
 - Create/edit: type, team, epic (drop-down scoped to the ticket's team), title,
   body, state. **Changing team clears/replaces the selected epic.** Show
@@ -420,7 +436,8 @@ validation surfaced).
 
 ### E15 — FE board + selector + filters + DnD
 **Depends on:** E14 (+ E9, E10 contracts) · **Requirement refs:** §8, §10, §11
-**Scope:** the primary Kanban screen.
+**Scope:** the primary Kanban screen — team **Select**, filter controls, and a
+create-ticket **modal** built on shadcn primitives (`@dnd-kit` still drives drag).
 
 - Team selector; 5 columns in workflow order; cards show title + type (+ epic);
   within a column ordered most-recently-modified first.

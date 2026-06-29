@@ -1,0 +1,155 @@
+/*
+ * Tailwind v4 theme — the single source of design tokens for the fe/ module.
+ *
+ * Every value here is transcribed from fe/DESIGN.md (the Vercel-inspired design
+ * language). The color and font-size namespaces are RESET to `initial` so that
+ * Tailwind's stock palette/type scale disappear and only DESIGN.md tokens exist
+ * as utilities — you cannot accidentally write `bg-blue-500` or `text-base`.
+ *
+ * Spacing is intentionally NOT overridden: DESIGN.md's base unit is 4px and every
+ * spacing token is a multiple of 4, which already matches Tailwind v4's default
+ * 4px-stepped scale 1:1 — e.g. spacing.lg(24px)=`p-6`, spacing.xl(32px)=`p-8`,
+ * spacing.4xl(64px)=`p-16`. Use the numeric scale.
+ */
+@import 'tailwindcss';
+
+@theme {
+  /* ── Fonts ─────────────────────────────────────────────────────────────── */
+  --font-sans: Geist, Inter, system-ui, -apple-system, sans-serif;
+  --font-mono: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+
+  /* ── Colors (reset stock palette, then DESIGN.md tokens only) ──────────── */
+  --color-*: initial;
+  --color-transparent: transparent;
+  --color-current: currentColor;
+
+  --color-primary: #171717;
+  --color-on-primary: #ffffff;
+  --color-ink: #171717;
+  --color-body: #4d4d4d;
+  --color-mute: #888888;
+  --color-hairline: #ebebeb;
+  --color-hairline-strong: #a1a1a1;
+  --color-canvas: #ffffff;
+  --color-canvas-soft: #fafafa;
+  --color-canvas-soft-2: #f5f5f5;
+  --color-link: #0070f3;
+  --color-link-deep: #0761d1;
+  --color-link-bg-soft: #d3e5ff;
+  --color-success: #0070f3;
+  --color-error: #ee0000;
+  --color-error-soft: #f7d4d6;
+  --color-error-deep: #c50000;
+  --color-warning: #f5a623;
+  --color-warning-soft: #ffefcf;
+  --color-warning-deep: #ab570a;
+  --color-violet: #7928ca;
+  --color-violet-soft: #d8ccf1;
+  --color-violet-deep: #4c2889;
+  --color-cyan: #50e3c2;
+  --color-cyan-soft: #aaffec;
+  --color-cyan-deep: #29bc9b;
+  --color-highlight-pink: #ff0080;
+  --color-highlight-magenta: #eb367f;
+  --color-gradient-develop-start: #007cf0;
+  --color-gradient-develop-end: #00dfd8;
+  --color-gradient-preview-start: #7928ca;
+  --color-gradient-preview-end: #ff0080;
+  --color-gradient-ship-start: #ff4d4d;
+  --color-gradient-ship-end: #f9cb28;
+  --color-selection-bg: #171717;
+  --color-selection-fg: #f2f2f2;
+
+  /* ── Radius (override stock scale to DESIGN.md; none/full stay built-in) ── */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-pill-sm: 64px;
+  --radius-pill: 100px;
+
+  /* ── Typography (reset stock type scale, then DESIGN.md roles) ─────────────
+   * Each role carries its paired line-height / letter-spacing / font-weight so
+   * `text-display-xl` reproduces the exact 48px / -2.4px / 600 combo, etc. */
+  --text-*: initial;
+
+  --text-display-xl: 48px;
+  --text-display-xl--line-height: 48px;
+  --text-display-xl--letter-spacing: -2.4px;
+  --text-display-xl--font-weight: 600;
+
+  --text-display-lg: 32px;
+  --text-display-lg--line-height: 40px;
+  --text-display-lg--letter-spacing: -1.28px;
+  --text-display-lg--font-weight: 600;
+
+  --text-display-md: 24px;
+  --text-display-md--line-height: 32px;
+  --text-display-md--letter-spacing: -0.96px;
+  --text-display-md--font-weight: 600;
+
+  --text-display-sm: 20px;
+  --text-display-sm--line-height: 28px;
+  --text-display-sm--letter-spacing: -0.6px;
+  --text-display-sm--font-weight: 600;
+
+  --text-body-lg: 18px;
+  --text-body-lg--line-height: 28px;
+  --text-body-lg--letter-spacing: 0px;
+  --text-body-lg--font-weight: 400;
+
+  --text-body-md: 16px;
+  --text-body-md--line-height: 24px;
+  --text-body-md--font-weight: 400;
+
+  --text-body-md-strong: 16px;
+  --text-body-md-strong--line-height: 24px;
+  --text-body-md-strong--font-weight: 500;
+
+  --text-body-sm: 14px;
+  --text-body-sm--line-height: 20px;
+  --text-body-sm--letter-spacing: -0.28px;
+  --text-body-sm--font-weight: 400;
+
+  --text-body-sm-strong: 14px;
+  --text-body-sm-strong--line-height: 20px;
+  --text-body-sm-strong--letter-spacing: -0.28px;
+  --text-body-sm-strong--font-weight: 500;
+
+  --text-caption: 12px;
+  --text-caption--line-height: 16px;
+  --text-caption--font-weight: 400;
+
+  --text-caption-mono: 12px;
+  --text-caption-mono--line-height: 16px;
+  --text-caption-mono--font-weight: 400;
+
+  --text-code: 13px;
+  --text-code--line-height: 20px;
+  --text-code--font-weight: 400;
+
+  --text-button-md: 14px;
+  --text-button-md--line-height: 20px;
+  --text-button-md--font-weight: 500;
+
+  --text-button-lg: 16px;
+  --text-button-lg--line-height: 24px;
+  --text-button-lg--font-weight: 500;
+
+  /* ── Elevation (DESIGN.md stacked shadows) ─────────────────────────────── */
+  --shadow-card: 0px 1px 1px #00000005, 0px 2px 2px #0000000a;
+}
+
+@layer base {
+  body {
+    background-color: var(--color-canvas-soft);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+  }
+
+  ::selection {
+    background-color: var(--color-selection-bg);
+    color: var(--color-selection-fg);
+  }
+}
