@@ -52,6 +52,12 @@ public class TestcontainersConfig {
         registry.add("yaj.verification.resend-rate-limit", () -> "5");
         registry.add("yaj.verification.resend-rate-window", () -> "15m");
 
+        // JWT properties for @auth BDD scenarios
+        registry.add("yaj.jwt.secret", () -> "test-jwt-secret-for-bdd-runs-that-is-at-least-32-chars");
+        registry.add("yaj.jwt.token-ttl", () -> "1h");
+        registry.add("yaj.jwt.login-rate-limit", () -> "5");
+        registry.add("yaj.jwt.login-rate-window", () -> "15m");
+
         // dummy origin so CORS validation passes at startup
         registry.add("yaj.cors.allowed-origins", () -> "http://localhost:9999");
     }

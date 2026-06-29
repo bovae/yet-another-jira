@@ -68,6 +68,7 @@ file at the repository root.
 | `YAJ_VERIFICATION_LINK_BASE_URL`      | Base URL for email verification links         | `http://localhost:8081/verify`                               |
 | `YAJ_VERIFICATION_REDIRECT_URL`       | Redirect target after successful verification | `http://localhost:8081/login`                                |
 | `YAJ_VERIFICATION_ERROR_REDIRECT_URL` | Redirect target after failed verification     | `http://localhost:8081/verify-error`                         |
+| `YAJ_JWT_SECRET`                      | HMAC-SHA256 signing key for JWTs (≥ 32 chars) | `change-me-in-production-this-is-only-for-local-dev`         |
 
 ### PostgreSQL Service Variables
 
