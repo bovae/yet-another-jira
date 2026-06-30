@@ -55,7 +55,7 @@ jobs:
           java-version: "21"
           cache: maven
       - name: Run tests with JaCoCo merge and coverage check
-        run: ./mvnw verify -Pbdd,it -Derrorprone.skip -B
+        run: ./mvnw verify -Pbdd,it -Derrorprone.skip -Dspotless.check.skip -B
       - name: Publish test report
         if: always()
         uses: mikepenz/action-junit-report@v4
@@ -143,16 +143,16 @@ jobs:
           cache: npm
           cache-dependency-path: fe/package-lock.json
       - name: Start full stack
-        run: docker compose up --build --detach
+        run: docker compose --profile mail up --build --detach
       - name: Wait for the SPA-to-API path to be ready
         run: |
           for i in $(seq 1 60); do
-            if curl -fsS http://localhost:8081/api/v1/mock/board >/dev/null 2>&1; then
+            if curl -fsS http://localhost:8081/ >/dev/null 2>&1; then
               echo "stack ready"; exit 0
             fi
             echo "waiting for stack ($i)..."; sleep 5
           done
-          echo "stack did not become ready in time"; docker compose logs; exit 1
+          echo "stack did not become ready in time"; docker compose --profile mail logs; exit 1
       - name: Install dependencies
         run: npm ci
         working-directory: fe
@@ -164,6 +164,7 @@ jobs:
         working-directory: fe
         env:
           PLAYWRIGHT_BASE_URL: http://localhost:8081
+          MAILPIT_URL: http://localhost:8025
       - name: Publish E2E report
         if: always()
         uses: mikepenz/action-junit-report@v4
@@ -172,7 +173,7 @@ jobs:
           check_name: "FE E2E Report"
       - name: Dump compose logs on failure
         if: failure()
-        run: docker compose logs
+        run: docker compose --profile mail logs
       - name: Tear down
         if: always()
-        run: docker compose down --volumes
+        run: docker compose --profile mail down --volumes

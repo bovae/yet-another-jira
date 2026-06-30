@@ -9,8 +9,11 @@
 
 export const REQUEST_TIMEOUT_MS = 10_000
 
+/** localStorage key where the JWT access token is stored after login. */
+export const TOKEN_KEY = 'accessToken'
+
 /**
- * Fetch against the API with a hard timeout.
+ * Fetch against the API with a hard timeout. Attaches a Bearer token from localStorage if present.
  *
  * @throws DOMException (name `AbortError`) when the request exceeds the timeout
  */
@@ -18,9 +21,16 @@ export async function apiFetch(path: string, init: RequestInit = {}): Promise<Re
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
 
+  const headers = new Headers(init.headers)
+  const token = localStorage.getItem(TOKEN_KEY)
+  if (token) {
+    headers.set('Authorization', `Bearer ${token}`)
+  }
+
   try {
     return await fetch(path, {
       ...init,
+      headers,
       signal: controller.signal,
     })
   } finally {
