@@ -10,9 +10,21 @@ Feature: Skeleton boot verification
   Scenario: Application context starts successfully
     Then the health endpoint returns status 200
 
+  # === Database Tables ===
+  Scenario: Freshly migrated database has required tables with zero rows
+    Then the following tables exist with zero rows:
+      | table_name |
+      | users      |
+      | teams      |
+      | epics      |
+      | tickets    |
+      | comments   |
+
   # === Mock Board ===
   Scenario: Mock board returns five columns in canonical workflow order
-    When the client requests the mock board endpoint
+    Given a registered and verified user with email "skeleton@example.com" and password "StrongPass123!"
+    And the user is logged in with email "skeleton@example.com" and password "StrongPass123!"
+    When the authenticated client requests the mock board endpoint
     Then the response contains exactly 5 columns
     And the columns are in workflow order: new, ready_for_implementation, in_progress, ready_for_acceptance, done
 
@@ -24,19 +36,3 @@ Feature: Skeleton boot verification
   Scenario: Correlation-id is generated when not provided in request header
     When the client sends a request without X-Correlation-Id
     Then the response header X-Correlation-Id is non-blank
-
-  # === Problem Details ===
-  Scenario: Unknown route returns application/problem+json with required members
-    When the client requests an unknown route
-    Then the response content type is "application/problem+json"
-    And the response body contains members: status, title, correlationId, timestamp
-
-  # === Database Tables ===
-  Scenario: Freshly migrated database has required tables with zero rows
-    Then the following tables exist with zero rows:
-      | table_name |
-      | users      |
-      | teams      |
-      | epics      |
-      | tickets    |
-      | comments   |

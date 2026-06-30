@@ -21,6 +21,7 @@ import com.bovae.yaj.auth.verification.EmailVerificationService;
 import com.bovae.yaj.auth.verification.VerificationResendService;
 import com.bovae.yaj.config.properties.VerificationProperties;
 import com.bovae.yaj.error.GoneException;
+import com.bovae.yaj.web.dto.MeResponse;
 import com.bovae.yaj.web.dto.SignupRequest;
 import com.bovae.yaj.web.dto.SignupResponse;
 import java.time.Instant;
@@ -42,6 +43,7 @@ class AuthControllerTest {
 
     private static final String SIGNUP_URL = "/api/v1/auth/signup";
     private static final String VERIFY_URL = "/api/v1/auth/verify";
+    private static final String ME_URL = "/api/v1/auth/me";
     private static final String RESEND_URL = "/api/v1/auth/verification/resend";
     private static final UUID TEST_ID = UUID.fromString("a1b2c3d4-e5f6-7890-abcd-ef1234567890");
     private static final Instant TEST_CREATED_AT = Instant.parse("2025-01-15T10:00:00Z");
@@ -195,5 +197,30 @@ class AuthControllerTest {
                                 + " a new verification email has been sent."));
 
         verify(verificationResendService).resend("user@example.com");
+    }
+
+    // --- GET /me → 200 JSON, no sensitive fields ---
+
+    @Test
+    void me_shouldReturn200WithUserJson_whenServiceSucceeds() throws Exception {
+        var meResponse = new MeResponse(TEST_ID, "user@example.com", true);
+        when(currentUserService.me()).thenReturn(meResponse);
+
+        MvcResult result = mockMvc.perform(get(ME_URL))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Type", "application/json"))
+                .andExpect(jsonPath("$.id").value(TEST_ID.toString()))
+                .andExpect(jsonPath("$.email").value("user@example.com"))
+                .andExpect(jsonPath("$.emailVerified").value(true))
+                .andExpect(jsonPath("$.passwordHash").doesNotExist())
+                .andExpect(jsonPath("$.hash").doesNotExist())
+                .andExpect(header().doesNotExist("Set-Cookie"))
+                .andReturn();
+
+        String body = result.getResponse().getContentAsString();
+        assertFalse(body.contains("passwordHash"), "response must not contain passwordHash");
+        assertFalse(body.contains("\"hash\""), "response must not contain hash field");
+
+        verify(currentUserService).me();
     }
 }

@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.bovae.yaj.domain.repository.UserRepository;
 import io.cucumber.datatable.DataTable;
 import io.cucumber.java.en.Given;
 import io.cucumber.java.en.Then;
@@ -18,6 +19,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.lang.Nullable;
 import org.springframework.web.client.RestClient;
 
 public class SkeletonSteps {
@@ -28,8 +30,14 @@ public class SkeletonSteps {
     @Autowired
     private DataSource dataSource;
 
+    @Autowired
+    private UserRepository userRepository;
+
     private RestClient restClient;
     private ResponseEntity<String> lastResponse;
+
+    @Nullable
+    private String accessToken;
 
     @Given("the application is running")
     public void theApplicationIsRunning() {
@@ -47,6 +55,55 @@ public class SkeletonSteps {
     }
 
     // === Mock Board ===
+
+    @Given("a registered and verified user with email {string} and password {string}")
+    public void aRegisteredAndVerifiedUserWithEmailAndPassword(String email, String password) {
+        ResponseEntity<String> signupResponse = restClient
+                .post()
+                .uri("/api/v1/auth/signup")
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(Map.of("email", email, "password", password))
+                .retrieve()
+                .toEntity(String.class);
+        assertEquals(201, signupResponse.getStatusCode().value(), "Signup should return 201");
+        // Verify the email directly in the database
+        var users = userRepository.findAll();
+        var user = users.stream()
+                .filter(u -> u.getEmail().equals(email))
+                .findFirst()
+                .orElseThrow();
+        user.setEmailVerified(true);
+        userRepository.saveAndFlush(user);
+    }
+
+    @Given("the user is logged in with email {string} and password {string}")
+    public void theUserIsLoggedInWithEmailAndPassword(String email, String password) {
+        ResponseEntity<String> loginResponse = restClient
+                .post()
+                .uri("/api/v1/auth/login")
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(Map.of("email", email, "password", password))
+                .retrieve()
+                .toEntity(String.class);
+        assertEquals(200, loginResponse.getStatusCode().value(), "Login should return 200");
+        String body = loginResponse.getBody();
+        assertNotNull(body, "Login response body should not be null");
+        int start = body.indexOf("\"accessToken\":\"") + "\"accessToken\":\"".length();
+        int end = body.indexOf("\"", start);
+        accessToken = body.substring(start, end);
+        assertNotNull(accessToken, "Extracted access token should not be null");
+    }
+
+    @When("the authenticated client requests the mock board endpoint")
+    public void theAuthenticatedClientRequestsTheMockBoardEndpoint() {
+        assertNotNull(accessToken, "Access token should be available");
+        lastResponse = restClient
+                .get()
+                .uri("/api/v1/mock/board")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
+                .retrieve()
+                .toEntity(String.class);
+    }
 
     @When("the client requests the mock board endpoint")
     public void theClientRequestsTheMockBoardEndpoint() {
@@ -112,45 +169,6 @@ public class SkeletonSteps {
         String correlationId = lastResponse.getHeaders().getFirst("X-Correlation-Id");
         assertNotNull(correlationId, "X-Correlation-Id response header should be present");
         assertFalse(correlationId.isBlank(), "X-Correlation-Id should not be blank");
-    }
-
-    // === Problem Details ===
-
-    @When("the client requests an unknown route")
-    public void theClientRequestsAnUnknownRoute() {
-        lastResponse = restClient
-                .get()
-                .uri("/api/v1/does-not-exist-" + System.nanoTime())
-                .header(HttpHeaders.ACCEPT, MediaType.APPLICATION_JSON_VALUE)
-                .retrieve()
-                .onStatus(status -> status.is4xxClientError() || status.is5xxServerError(), (req, resp) -> {
-                    // Do not throw — we want to inspect the error response
-                })
-                .toEntity(String.class);
-    }
-
-    @Then("the response content type is {string}")
-    public void theResponseContentTypeIs(String expectedContentType) {
-        assertNotNull(lastResponse, "No response captured");
-        MediaType contentType = lastResponse.getHeaders().getContentType();
-        assertNotNull(contentType, "Content-Type header should be present");
-        // Compare type and subtype, ignoring parameters like charset
-        MediaType expected = MediaType.parseMediaType(expectedContentType);
-        assertTrue(
-                contentType.isCompatibleWith(expected),
-                "Content-Type should be " + expectedContentType + " but was " + contentType);
-    }
-
-    @Then("the response body contains members: status, title, correlationId, timestamp")
-    public void theResponseBodyContainsRequiredMembers() {
-        assertNotNull(lastResponse, "No response captured");
-        String body = lastResponse.getBody();
-        assertNotNull(body, "Response body should not be null");
-
-        assertTrue(body.contains("\"status\""), "Body should contain 'status' member. Body: " + body);
-        assertTrue(body.contains("\"title\""), "Body should contain 'title' member. Body: " + body);
-        assertTrue(body.contains("\"correlationId\""), "Body should contain 'correlationId' member. Body: " + body);
-        assertTrue(body.contains("\"timestamp\""), "Body should contain 'timestamp' member. Body: " + body);
     }
 
     // === Database Tables ===

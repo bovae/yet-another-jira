@@ -107,8 +107,7 @@ public class AuthController {
     }
 
     @GetMapping(value = "/me", produces = MediaType.APPLICATION_JSON_VALUE)
-    public MeResponse me(
-            @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) @Nullable String authorization) {
-        return currentUserService.me(authorization);
+    public MeResponse me() {
+        return currentUserService.me();
     }
 }

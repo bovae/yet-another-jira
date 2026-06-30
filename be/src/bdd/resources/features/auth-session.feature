@@ -15,3 +15,18 @@ Feature: Auth session — login, current user, and logout
     Then the response status is 204
     When the user requests current-user with the access token
     Then the response status is 401
+
+  Scenario: Protected endpoint rejects a request with no access token
+    When the user requests current-user without an access token
+    Then the response status is 401
+
+  Scenario: Authenticated request to an unknown route returns a problem+json 404
+    Given a registered user with email "notfound@example.com" and password "StrongPass123!"
+    And the user's email is verified
+    When the user logs in with email "notfound@example.com" and password "StrongPass123!"
+    Then the response status is 200
+    And the response body contains an access token
+    When the user requests an unknown route with the access token
+    Then the response status is 404
+    And the response content type is "application/problem+json"
+    And the response body contains members: status, title, correlationId, timestamp
