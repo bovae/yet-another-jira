@@ -1,10 +1,15 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
-import { apiFetch, REQUEST_TIMEOUT_MS } from './client'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { apiFetch, REQUEST_TIMEOUT_MS, TOKEN_KEY } from './client'
 
 describe('apiFetch', () => {
+  beforeEach(() => {
+    localStorage.clear()
+  })
+
   afterEach(() => {
     vi.restoreAllMocks()
     vi.useRealTimers()
+    localStorage.clear()
   })
 
   it('does not send an X-Correlation-Id header (the backend owns correlation ids)', async () => {
@@ -27,6 +32,29 @@ describe('apiFetch', () => {
     const init = (fetchMock.mock.calls[0][1] ?? {}) as RequestInit
     const headers = new Headers(init.headers)
     expect(headers.get('X-Test')).toBe('yes')
+  })
+
+  it('attaches Authorization header when token exists in localStorage', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response('{}', { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+    localStorage.setItem(TOKEN_KEY, 'my-jwt-token')
+
+    await apiFetch('/api/v1/mock/board')
+
+    const init = (fetchMock.mock.calls[0][1] ?? {}) as RequestInit
+    const headers = new Headers(init.headers)
+    expect(headers.get('Authorization')).toBe('Bearer my-jwt-token')
+  })
+
+  it('does not attach Authorization header when no token in localStorage', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response('{}', { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await apiFetch('/api/v1/mock/board')
+
+    const init = (fetchMock.mock.calls[0][1] ?? {}) as RequestInit
+    const headers = new Headers(init.headers)
+    expect(headers.has('Authorization')).toBe(false)
   })
 
   it('aborts the request after the timeout elapses', async () => {
