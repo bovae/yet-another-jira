@@ -62,7 +62,7 @@ behind the `mail` compose profile).
 
 ```mermaid
 graph TD
-    SK[Skeleton 001 - DONE]:::done
+    SK[Skeleton]:::done
 
     subgraph Auth Spine
       A1[E1 Sign-up + password hashing]
