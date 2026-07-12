@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { apiFetch, REQUEST_TIMEOUT_MS, TOKEN_KEY } from './client'
+import { apiFetch, AUTH_UNAUTHORIZED_EVENT, REQUEST_TIMEOUT_MS, TOKEN_KEY } from './client'
 
 describe('apiFetch', () => {
   beforeEach(() => {
@@ -55,6 +55,38 @@ describe('apiFetch', () => {
     const init = (fetchMock.mock.calls[0][1] ?? {}) as RequestInit
     const headers = new Headers(init.headers)
     expect(headers.has('Authorization')).toBe(false)
+  })
+
+  it('clears the token and dispatches auth:unauthorized on a 401 that carried a token', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 401 }))
+    vi.stubGlobal('fetch', fetchMock)
+    localStorage.setItem(TOKEN_KEY, 'expired-token')
+    const listener = vi.fn()
+    window.addEventListener(AUTH_UNAUTHORIZED_EVENT, listener)
+
+    try {
+      await apiFetch('/api/v1/mock/board')
+
+      expect(localStorage.getItem(TOKEN_KEY)).toBeNull()
+      expect(listener).toHaveBeenCalledTimes(1)
+    } finally {
+      window.removeEventListener(AUTH_UNAUTHORIZED_EVENT, listener)
+    }
+  })
+
+  it('does not clear or dispatch on a 401 that carried no token (credential failure)', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 401 }))
+    vi.stubGlobal('fetch', fetchMock)
+    const listener = vi.fn()
+    window.addEventListener(AUTH_UNAUTHORIZED_EVENT, listener)
+
+    try {
+      await apiFetch('/api/v1/auth/login', { method: 'POST' })
+
+      expect(listener).not.toHaveBeenCalled()
+    } finally {
+      window.removeEventListener(AUTH_UNAUTHORIZED_EVENT, listener)
+    }
   })
 
   it('aborts the request after the timeout elapses', async () => {

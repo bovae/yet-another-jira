@@ -1,4 +1,5 @@
 /// <reference types="vitest/config" />
+import { fileURLToPath, URL } from 'node:url'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
@@ -9,6 +10,11 @@ const apiProxyTarget = process.env.VITE_API_PROXY_TARGET ?? 'http://localhost:80
 
 export default defineConfig({
   plugins: [tailwindcss(), react()],
+  resolve: {
+    alias: {
+      '@': fileURLToPath(new URL('./src', import.meta.url)),
+    },
+  },
   server: {
     port: 5173,
     proxy: {
