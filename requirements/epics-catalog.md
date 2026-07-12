@@ -33,7 +33,7 @@ are in the [Epic Catalog](#3-epic-catalog-major-one-by-one).
 - [x] **E7** — Tickets CRUD + validation + `modified_at`
 - [x] **E8** — Comments
 - [x] **E14** — FE ticket views + comments
-- [ ] **E9** — Board read (columns, ordering, filters, search)
+- [x] **E9** — Board read (columns, ordering, filters, search)
 - [ ] **E15** — FE board + selector + filters + DnD
 - [ ] **E10** — Board drag-and-drop persistence
 
