@@ -62,6 +62,9 @@ public class VerificationSteps {
     @Nullable
     private ResponseEntity<String> lastResponse;
 
+    @Nullable
+    private String lastCapturedRecipient;
+
     // --- Background ---
 
     @Given("the SMTP capture server is running")
@@ -82,32 +85,34 @@ public class VerificationSteps {
 
     @And("a verification email is captured for {string}")
     public void aVerificationEmailIsCapturedFor(String email) {
-        assertTrue(waitForEmail(email, 5000), "Expected at least one verification email for " + email);
+        assertExactlyOneEmailFor(email);
     }
 
     @And("a new verification email is captured for {string}")
     public void aNewVerificationEmailIsCapturedFor(String email) {
-        assertTrue(waitForEmail(email, 5000), "Expected a new verification email for " + email);
+        assertExactlyOneEmailFor(email);
     }
 
-    @And("no verification email is captured")
-    public void noVerificationEmailIsCaptured() {
-        // Brief wait to ensure async dispatch completes (or doesn't)
-        sleep(500);
-        MimeMessage[] messages = TestcontainersConfig.GREEN_MAIL.getReceivedMessages();
-        assertEquals(0, messages.length, "No verification emails should be captured");
+    @And("no verification email is captured for {string}")
+    public void noVerificationEmailIsCapturedFor(String email) {
+        // Bounded wait: give async dispatch a chance to (wrongly) deliver, then assert none did.
+        waitForEmailCountFor(email, 1, 500);
+        assertEquals(0, emailCountFor(email), "No verification email should be captured for " + email);
     }
 
-    @And("no further verification email is captured after the rate limit is hit")
-    public void noFurtherVerificationEmailIsCapturedAfterTheRateLimitIsHit() {
-        // The rate limit scenario sends N requests; only the ones before the limit should generate emails.
-        // resend-rate-limit is 5, so 5 emails expected from the 5 accepted requests.
-        // The 6th is rate-limited -> no 6th email.
-        MimeMessage[] messages = TestcontainersConfig.GREEN_MAIL.getReceivedMessages();
-        // At most resendRateLimit emails should exist
+    @And("no further verification email is captured for {string} after the rate limit is hit")
+    public void noFurtherVerificationEmailIsCapturedFor(String email) {
+        // resendRateLimit requests are accepted (one email each); the next is rate-limited and never
+        // publishes a dispatch event, so exactly resendRateLimit emails can ever arrive for this
+        // recipient. Counting per-recipient is robust to async emails leaking in from other scenarios.
+        int expected = verificationProperties.resendRateLimit();
         assertTrue(
-                messages.length <= verificationProperties.resendRateLimit(),
-                "No further emails should be captured after rate limit. Got: " + messages.length);
+                waitForEmailCountFor(email, expected, 5000),
+                "Expected the " + expected + " accepted resend emails for " + email);
+        assertEquals(
+                expected,
+                emailCountFor(email),
+                "Exactly " + expected + " emails should be captured for " + email + "; the rate-limited request none");
     }
 
     // --- Token extraction ---
@@ -307,37 +312,67 @@ public class VerificationSteps {
     @Nullable
     private String extractTokenFromLatestEmail() throws Exception {
         MimeMessage[] messages = TestcontainersConfig.GREEN_MAIL.getReceivedMessages();
-        if (messages.length == 0) {
-            return null;
-        }
-        // Get the latest message
-        MimeMessage latest = messages[messages.length - 1];
-        String body = (String) latest.getContent();
-        Matcher matcher = TOKEN_PATTERN.matcher(body);
-        if (matcher.find()) {
-            return matcher.group(1);
+        // Scan newest-first for the latest email addressed to the recipient we last captured, so a
+        // leaked async email from another scenario cannot hand us the wrong token.
+        for (int i = messages.length - 1; i >= 0; i--) {
+            MimeMessage message = messages[i];
+            if (lastCapturedRecipient != null && !isAddressedTo(message, lastCapturedRecipient)) {
+                continue;
+            }
+            String body = (String) message.getContent();
+            Matcher matcher = TOKEN_PATTERN.matcher(body);
+            if (matcher.find()) {
+                return matcher.group(1);
+            }
         }
         return null;
     }
 
-    private boolean waitForEmail(String email, long timeoutMs) {
+    private void assertExactlyOneEmailFor(String email) {
+        assertTrue(waitForEmailCountFor(email, 1, 5000), "Expected a verification email for " + email);
+        assertEquals(1, emailCountFor(email), "Exactly one verification email should be captured for " + email);
+        lastCapturedRecipient = email;
+    }
+
+    private int emailCountFor(String email) {
+        int count = 0;
+        for (MimeMessage message : TestcontainersConfig.GREEN_MAIL.getReceivedMessages()) {
+            if (isAddressedTo(message, email)) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    /**
+     * Deadline-polls until at least {@code expected} messages addressed to {@code email} are present.
+     * Counting per-recipient (not the whole mailbox) is robust to async emails from other scenarios
+     * arriving late — they target different recipients.
+     */
+    private boolean waitForEmailCountFor(String email, int expected, long timeoutMs) {
         long deadline = System.currentTimeMillis() + timeoutMs;
         while (System.currentTimeMillis() < deadline) {
-            MimeMessage[] messages = TestcontainersConfig.GREEN_MAIL.getReceivedMessages();
-            for (MimeMessage msg : messages) {
-                try {
-                    if (msg.getAllRecipients() != null) {
-                        for (jakarta.mail.Address addr : msg.getAllRecipients()) {
-                            if (addr.toString().equalsIgnoreCase(email)) {
-                                return true;
-                            }
-                        }
-                    }
-                } catch (jakarta.mail.MessagingException e) {
-                    // ignore and retry
+            if (emailCountFor(email) >= expected) {
+                return true;
+            }
+            sleep(50);
+        }
+        return emailCountFor(email) >= expected;
+    }
+
+    private static boolean isAddressedTo(MimeMessage message, String email) {
+        try {
+            jakarta.mail.Address[] recipients = message.getAllRecipients();
+            if (recipients == null) {
+                return false;
+            }
+            for (jakarta.mail.Address addr : recipients) {
+                if (addr.toString().equalsIgnoreCase(email)) {
+                    return true;
                 }
             }
-            sleep(100);
+        } catch (jakarta.mail.MessagingException e) {
+            return false;
         }
         return false;
     }

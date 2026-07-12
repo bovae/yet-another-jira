@@ -1,5 +1,6 @@
 package com.bovae.yaj.bdd;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -132,13 +133,15 @@ public class TeamSteps {
     @Then("the team's modified timestamp is later than at creation")
     public void theTeamsModifiedTimestampIsLaterThanAtCreation() {
         assertNotNull(modifiedAtAtCreation, "Creation timestamp must be known");
-        ResponseEntity<String> response = sharedState.getLastResponse();
-        assertNotNull(response, "Response should not be null");
-        Instant afterRename = extractInstant(response, "modifiedAt");
+        assertNotNull(teamId, "Team id must be known");
+        // Re-GET so the assertion reflects the persisted value, not just the rename response body.
+        ResponseEntity<String> fetched = exchange(HttpMethod.GET, teamPath(), null, true);
+        assertEquals(200, fetched.getStatusCode().value(), "GET after rename should succeed");
+        Instant afterRename = extractInstant(fetched, "modifiedAt");
         assertTrue(
                 afterRename.isAfter(modifiedAtAtCreation),
-                "modified_at after rename (" + afterRename + ") must be later than at creation (" + modifiedAtAtCreation
-                        + ")");
+                "persisted modified_at after rename (" + afterRename + ") must be later than at creation ("
+                        + modifiedAtAtCreation + ")");
     }
 
     // --- helpers ---

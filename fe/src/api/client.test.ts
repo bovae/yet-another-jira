@@ -75,4 +75,23 @@ describe('apiFetch', () => {
     expect(signal.aborted).toBe(true)
     await expect(promise).rejects.toThrow()
   })
+
+  it('propagates a caller-supplied abort signal to the fetch request', async () => {
+    const fetchMock = vi.fn((_path: string, init?: RequestInit) => {
+      return new Promise<Response>((_resolve, reject) => {
+        const signal = init?.signal
+        signal?.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')))
+      })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const controller = new AbortController()
+    const promise = apiFetch('/api/v1/mock/board', { signal: controller.signal })
+    const passedSignal = (fetchMock.mock.calls[0][1] as RequestInit).signal as AbortSignal
+    expect(passedSignal.aborted).toBe(false)
+
+    controller.abort()
+    expect(passedSignal.aborted).toBe(true)
+    await expect(promise).rejects.toThrow()
+  })
 })

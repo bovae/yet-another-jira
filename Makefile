@@ -21,8 +21,9 @@ be-lint:
 fe-test:
 	cd $(FE_DIR) && npm test
 
+# Mirrors CI's frontend gate: ESLint + Prettier format check + TypeScript typecheck (src + e2e).
 fe-lint:
-	cd $(FE_DIR) && npm run lint
+	cd $(FE_DIR) && npm run lint && npm run format:check && npm run typecheck
 
 fmt:
 	cd $(BE_DIR) && ./mvnw spotless:apply

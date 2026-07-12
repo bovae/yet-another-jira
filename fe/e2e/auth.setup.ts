@@ -28,16 +28,28 @@ setup('authenticate', async ({ page, baseURL }) => {
   })
   expect(signupRes.ok()).toBeTruthy()
 
-  // 2. Wait for async email delivery, then read from Mailpit
-  await page.waitForTimeout(2000)
+  // 2. Poll Mailpit's search API for the verification email addressed to this recipient. Filtering
+  //    by recipient avoids picking up a pre-existing message; polling replaces a fixed sleep so the
+  //    async dispatch is awaited exactly as long as it takes.
+  const searchUrl = `${mailpitUrl}/api/v1/search?query=${encodeURIComponent(`to:${TEST_EMAIL}`)}`
+  await expect
+    .poll(
+      async () => {
+        const res = await page.request.get(searchUrl)
+        if (!res.ok()) {
+          return 0
+        }
+        const data = (await res.json()) as MailpitMessagesResponse
+        return data.messages.length
+      },
+      { message: `verification email for ${TEST_EMAIL}`, timeout: 15_000 },
+    )
+    .toBeGreaterThan(0)
 
-  const messagesRes = await page.request.get(`${mailpitUrl}/api/v1/messages?limit=1`)
-  expect(messagesRes.ok()).toBeTruthy()
-  const messages = (await messagesRes.json()) as MailpitMessagesResponse
-  expect(messages.messages.length).toBeGreaterThan(0)
-
-  // 3. Get full message to extract verification token
-  const messageId = messages.messages[0].ID
+  // 3. Fetch the newest matching message (Mailpit returns newest-first) and extract the token.
+  const searchRes = await page.request.get(searchUrl)
+  const searchData = (await searchRes.json()) as MailpitMessagesResponse
+  const messageId = searchData.messages[0].ID
   const msgRes = await page.request.get(`${mailpitUrl}/api/v1/message/${messageId}`)
   expect(msgRes.ok()).toBeTruthy()
   const msg = (await msgRes.json()) as MailpitMessage

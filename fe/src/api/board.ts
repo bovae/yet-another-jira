@@ -27,11 +27,13 @@ export const MOCK_BOARD_PATH = '/api/v1/mock/board'
 /**
  * Fetch the mock board from the backend.
  *
+ * @param options.signal cancellation signal (e.g. from TanStack Query's `queryFn` context) so an
+ *   unmounted or superseded query aborts the in-flight request instead of leaking it
  * @throws Error when the response is not a success status or the payload is malformed
- * @throws DOMException (name `AbortError`) when the request times out
+ * @throws DOMException (name `AbortError`) when the request times out or is aborted
  */
-export async function getMockBoard(): Promise<BoardView> {
-  const res = await apiFetch(MOCK_BOARD_PATH)
+export async function getMockBoard(options: { signal?: AbortSignal } = {}): Promise<BoardView> {
+  const res = await apiFetch(MOCK_BOARD_PATH, { signal: options.signal })
   if (!res.ok) {
     throw new Error(`board fetch failed: ${res.status}`)
   }

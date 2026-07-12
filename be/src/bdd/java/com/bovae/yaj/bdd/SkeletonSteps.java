@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.bovae.yaj.domain.repository.UserRepository;
 import io.cucumber.datatable.DataTable;
+import io.cucumber.java.After;
 import io.cucumber.java.en.Given;
 import io.cucumber.java.en.Then;
 import io.cucumber.java.en.When;
@@ -43,6 +44,12 @@ public class SkeletonSteps {
     public void theApplicationIsRunning() {
         restClient = RestClient.builder().baseUrl("http://localhost:" + port).build();
         assertNotNull(restClient, "RestClient should be created from a running app context");
+    }
+
+    /** Removes users created by @skeleton scenarios so they don't leak into the shared DB. */
+    @After("@skeleton")
+    public void cleanupSkeletonUsers() {
+        userRepository.deleteAll();
     }
 
     // === Health Check ===

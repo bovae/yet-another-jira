@@ -4,14 +4,15 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.never;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.bovae.yaj.auth.token.TokenHasher;
 import com.bovae.yaj.error.RateLimitException;
 import java.time.Duration;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -19,7 +20,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.data.redis.core.ValueOperations;
+import org.springframework.data.redis.core.script.RedisScript;
 
 @ExtendWith(MockitoExtension.class)
 class FixedWindowRateLimiterTest {
@@ -36,9 +37,6 @@ class FixedWindowRateLimiterTest {
     private StringRedisTemplate stringRedisTemplate;
 
     @Mock
-    private ValueOperations<String, String> valueOperations;
-
-    @Mock
     private TokenHasher tokenHasher;
 
     private FixedWindowRateLimiter rateLimiter;
@@ -48,30 +46,21 @@ class FixedWindowRateLimiterTest {
         rateLimiter = new FixedWindowRateLimiter(
                 stringRedisTemplate, tokenHasher, KEY_PREFIX, LIMIT, WINDOW, REJECTION_MESSAGE);
         when(tokenHasher.hash(TEST_EMAIL)).thenReturn(HASHED_EMAIL);
-        when(stringRedisTemplate.opsForValue()).thenReturn(valueOperations);
     }
 
     @Test
-    void checkAndIncrement_shouldSetExpireOnFirstCall() {
-        when(valueOperations.increment(EXPECTED_KEY)).thenReturn(1L);
+    void checkAndIncrement_shouldRunAtomicScriptWithKeyAndWindowMillis() {
+        stubScriptReturns(1L);
 
         rateLimiter.checkAndIncrement(TEST_EMAIL);
 
-        verify(stringRedisTemplate).expire(EXPECTED_KEY, WINDOW);
-    }
-
-    @Test
-    void checkAndIncrement_shouldNotSetExpireOnSubsequentCalls() {
-        when(valueOperations.increment(EXPECTED_KEY)).thenReturn(2L);
-
-        rateLimiter.checkAndIncrement(TEST_EMAIL);
-
-        verify(stringRedisTemplate, never()).expire(anyString(), any(Duration.class));
+        verify(stringRedisTemplate)
+                .execute(any(RedisScript.class), eq(List.of(EXPECTED_KEY)), eq(String.valueOf(WINDOW.toMillis())));
     }
 
     @Test
     void checkAndIncrement_shouldThrowRateLimitException_whenLimitExceeded() {
-        when(valueOperations.increment(EXPECTED_KEY)).thenReturn((long) LIMIT + 1);
+        stubScriptReturns((long) LIMIT + 1);
         when(stringRedisTemplate.getExpire(EXPECTED_KEY, TimeUnit.SECONDS)).thenReturn(600L);
 
         RateLimitException ex = assertThrows(RateLimitException.class, () -> rateLimiter.checkAndIncrement(TEST_EMAIL));
@@ -81,19 +70,32 @@ class FixedWindowRateLimiterTest {
 
     @Test
     void checkAndIncrement_shouldNotThrow_whenAtLimit() {
-        when(valueOperations.increment(EXPECTED_KEY)).thenReturn((long) LIMIT);
+        stubScriptReturns((long) LIMIT);
 
         assertDoesNotThrow(() -> rateLimiter.checkAndIncrement(TEST_EMAIL));
     }
 
     @Test
     void checkAndIncrement_shouldReArmTtl_whenTtlMissing() {
-        when(valueOperations.increment(EXPECTED_KEY)).thenReturn((long) LIMIT + 1);
+        stubScriptReturns((long) LIMIT + 1);
         when(stringRedisTemplate.getExpire(EXPECTED_KEY, TimeUnit.SECONDS)).thenReturn(-1L);
 
         RateLimitException ex = assertThrows(RateLimitException.class, () -> rateLimiter.checkAndIncrement(TEST_EMAIL));
 
         assertEquals(WINDOW.toSeconds(), ex.getRetryAfterSeconds());
         verify(stringRedisTemplate).expire(EXPECTED_KEY, WINDOW);
+    }
+
+    @Test
+    void checkAndIncrement_shouldFailOpen_whenScriptReturnsNull() {
+        stubScriptReturns(null);
+
+        assertDoesNotThrow(() -> rateLimiter.checkAndIncrement(TEST_EMAIL));
+    }
+
+    @SuppressWarnings("unchecked")
+    private void stubScriptReturns(Long count) {
+        when(stringRedisTemplate.execute(any(RedisScript.class), anyList(), any()))
+                .thenReturn(count);
     }
 }

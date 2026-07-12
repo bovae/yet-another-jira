@@ -13,6 +13,7 @@ import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,7 +23,9 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class TeamService {
 
+    private static final int MAX_NAME_LENGTH = 100;
     private static final String NAME_REQUIRED_MSG = "A team name is required.";
+    private static final String NAME_TOO_LONG_MSG = "A team name must not exceed 100 characters.";
     private static final String NAME_TAKEN_MSG = "A team named '%s' already exists.";
     private static final String NOT_FOUND_MSG = "Team '%s' was not found.";
     private static final String HAS_REFERENCES_MSG =
@@ -49,9 +52,14 @@ public class TeamService {
         }
         Team team = new Team();
         team.setName(trimmed);
-        Team saved = teamRepository.saveAndFlush(team);
-        LOG.info("Team created: teamId={}", saved.getId());
-        return TeamResponse.from(saved);
+        try {
+            Team saved = teamRepository.saveAndFlush(team);
+            LOG.info("Team created: teamId={}", saved.getId());
+            return TeamResponse.from(saved);
+        } catch (DataIntegrityViolationException ex) {
+            LOG.warn("Team create race: name unique-constraint rejected the insert; translating to conflict");
+            throw new ConflictException(NAME_TAKEN_MSG.formatted(trimmed));
+        }
     }
 
     public TeamResponse rename(UUID id, String name) {
@@ -61,7 +69,12 @@ public class TeamService {
             throw new ConflictException(NAME_TAKEN_MSG.formatted(trimmed));
         }
         team.setName(trimmed);
-        return TeamResponse.from(teamRepository.saveAndFlush(team));
+        try {
+            return TeamResponse.from(teamRepository.saveAndFlush(team));
+        } catch (DataIntegrityViolationException ex) {
+            LOG.warn("Team rename race: name unique-constraint rejected the update; translating to conflict");
+            throw new ConflictException(NAME_TAKEN_MSG.formatted(trimmed));
+        }
     }
 
     public void delete(UUID id) {
@@ -69,7 +82,15 @@ public class TeamService {
         if (epicRepository.existsByTeamId(id) || ticketRepository.existsByTeamId(id)) {
             throw new ConflictException(HAS_REFERENCES_MSG.formatted(id));
         }
-        teamRepository.delete(team);
+        try {
+            teamRepository.delete(team);
+            // Flush inside the try so a concurrently inserted FK reference surfaces here as a
+            // DataIntegrityViolationException rather than at commit, outside the catch.
+            teamRepository.flush();
+        } catch (DataIntegrityViolationException ex) {
+            LOG.warn("Team delete race: foreign-key reference rejected the delete; translating to conflict");
+            throw new ConflictException(HAS_REFERENCES_MSG.formatted(id));
+        }
         LOG.info("Team deleted: teamId={}", id);
     }
 
@@ -81,6 +102,10 @@ public class TeamService {
         if (StringUtils.isBlank(name)) {
             throw new ValidationException(NAME_REQUIRED_MSG);
         }
-        return name.strip();
+        String trimmed = name.strip();
+        if (trimmed.length() > MAX_NAME_LENGTH) {
+            throw new ValidationException(NAME_TOO_LONG_MSG);
+        }
+        return trimmed;
     }
 }

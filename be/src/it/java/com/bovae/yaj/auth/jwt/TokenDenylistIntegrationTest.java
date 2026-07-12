@@ -75,15 +75,33 @@ class TokenDenylistIntegrationTest {
     }
 
     @Test
-    void contains_shouldReturnFalse_afterTtlExpires() throws InterruptedException {
+    void contains_shouldReturnFalse_afterTtlExpires() {
         String jti = UUID.randomUUID().toString();
         tokenDenylist.revoke(jti, Duration.ofSeconds(1));
 
         assertTrue(tokenDenylist.contains(jti), "should be present immediately after revocation");
 
-        // Wait for key to self-expire
-        Thread.sleep(1_500);
+        // Poll until the key self-expires rather than sleeping a fixed interval: exits fast in
+        // practice, with a generous deadline for slow CI.
+        long deadline = System.currentTimeMillis() + 5_000;
+        boolean expired = false;
+        while (System.currentTimeMillis() < deadline) {
+            if (!tokenDenylist.contains(jti)) {
+                expired = true;
+                break;
+            }
+            sleep(100);
+        }
 
+        assertTrue(expired, "key should have expired within the deadline");
         assertFalse(tokenDenylist.contains(jti), "should be absent after TTL elapses");
+    }
+
+    private static void sleep(long ms) {
+        try {
+            Thread.sleep(ms);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
     }
 }

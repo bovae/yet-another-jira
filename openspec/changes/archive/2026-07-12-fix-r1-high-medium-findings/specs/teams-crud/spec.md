@@ -1,20 +1,6 @@
-# teams-crud
+# teams-crud — delta
 
-## Purpose
-CRUD management of teams, the top-level grouping that epics and tickets belong to. All endpoints live under `/api/v1/teams`, require authentication, enforce case-insensitive unique names, and guard deletion against referencing epics or tickets.
-
-## Requirements
-
-### Requirement: List teams
-The system SHALL return all teams to any authenticated user via `GET /api/v1/teams`. No membership or ownership filtering applies — all verified users see all teams.
-
-#### Scenario: List returns all teams
-- **WHEN** an authenticated user requests `GET /api/v1/teams`
-- **THEN** the response is `200` with every team (id, name, created_at, modified_at), timestamps ISO-8601 UTC
-
-#### Scenario: Empty list on fresh database
-- **WHEN** no teams exist and an authenticated user requests `GET /api/v1/teams`
-- **THEN** the response is `200` with an empty array
+## MODIFIED Requirements
 
 ### Requirement: Create team
 The system SHALL create a team via `POST /api/v1/teams`. The name MUST be trimmed before validation and persistence, MUST be non-empty after trimming, MUST NOT exceed 100 characters after trimming, and MUST be unique case-insensitively. Uniqueness violations MUST surface as `409` even when the duplicate is detected by the database constraint rather than the pre-check (concurrent creates). `created_at`/`modified_at` are server-set UTC.
@@ -38,17 +24,6 @@ The system SHALL create a team via `POST /api/v1/teams`. The name MUST be trimme
 #### Scenario: Concurrent duplicate create rejected
 - **WHEN** two concurrent creates with the same name both pass the pre-check and the database unique constraint rejects the second insert
 - **THEN** the losing request gets `409` with an RFC 9457 problem detail, not `500`
-
-### Requirement: Get team
-The system SHALL return a single team via `GET /api/v1/teams/{id}`, or `404` when it does not exist.
-
-#### Scenario: Existing team
-- **WHEN** an authenticated user requests an existing team id
-- **THEN** the response is `200` with that team
-
-#### Scenario: Unknown team
-- **WHEN** an authenticated user requests a non-existent team id
-- **THEN** the response is `404` with an RFC 9457 problem detail
 
 ### Requirement: Rename team
 The system SHALL rename a team via `PUT /api/v1/teams/{id}` applying the same name rules as create (trim, non-empty, at most 100 characters, case-insensitively unique — including constraint-detected races, which MUST surface as `409`). A successful rename MUST advance `modified_at` (server UTC), and the advanced value MUST be persisted — observable on a subsequent `GET`, not only in the rename response body. Renaming a team to its own current name SHALL succeed.
@@ -91,10 +66,3 @@ The system SHALL delete a team via `DELETE /api/v1/teams/{id}` only when it cont
 #### Scenario: Delete unknown team
 - **WHEN** the team id does not exist
 - **THEN** the response is `404`
-
-### Requirement: Authentication required
-All team endpoints SHALL require a valid bearer token (enforced by the existing security configuration's authenticated-by-default rule for `/api/v1/**`).
-
-#### Scenario: Unauthenticated request rejected
-- **WHEN** any team endpoint is called without a valid token
-- **THEN** the response is `401` with an RFC 9457 problem detail

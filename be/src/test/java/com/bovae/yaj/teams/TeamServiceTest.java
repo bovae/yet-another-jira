@@ -28,12 +28,14 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
 
 @ExtendWith(MockitoExtension.class)
 class TeamServiceTest {
 
     private static final Instant OLD_MODIFIED_AT = Instant.parse("2024-01-01T00:00:00Z");
     private static final UUID TEAM_ID = UUID.fromString("11111111-1111-1111-1111-111111111111");
+    private static final String TOO_LONG_NAME = "a".repeat(101);
 
     @Mock
     private TeamRepository teamRepository;
@@ -83,6 +85,20 @@ class TeamServiceTest {
         verify(teamRepository, never()).saveAndFlush(any());
     }
 
+    @Test
+    void create_shouldThrowValidation_whenNameExceeds100CharsAfterTrim() {
+        assertThrows(ValidationException.class, () -> teamService.create("  " + TOO_LONG_NAME + "  "));
+        verify(teamRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void create_shouldTranslateToConflict_whenUniqueConstraintRace() {
+        when(teamRepository.existsByName("Platform")).thenReturn(false);
+        when(teamRepository.saveAndFlush(any(Team.class))).thenThrow(new DataIntegrityViolationException("unique"));
+
+        assertThrows(ConflictException.class, () -> teamService.create("Platform"));
+    }
+
     // --- rename ---
 
     @Test
@@ -115,6 +131,21 @@ class TeamServiceTest {
 
         verify(teamRepository).saveAndFlush(teamCaptor.capture());
         assertEquals("Renamed", teamCaptor.getValue().getName(), "rename must trim and apply the new name");
+    }
+
+    @Test
+    void rename_shouldThrowValidation_whenNameExceeds100CharsAfterTrim() {
+        assertThrows(ValidationException.class, () -> teamService.rename(TEAM_ID, "  " + TOO_LONG_NAME + "  "));
+        verify(teamRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void rename_shouldTranslateToConflict_whenUniqueConstraintRace() {
+        when(teamRepository.findById(TEAM_ID)).thenReturn(Optional.of(existingTeam()));
+        when(teamRepository.existsByNameAndIdNot("Payments", TEAM_ID)).thenReturn(false);
+        when(teamRepository.saveAndFlush(any(Team.class))).thenThrow(new DataIntegrityViolationException("unique"));
+
+        assertThrows(ConflictException.class, () -> teamService.rename(TEAM_ID, "Payments"));
     }
 
     // --- unknown id -> 404 ---
@@ -168,6 +199,18 @@ class TeamServiceTest {
         teamService.delete(TEAM_ID);
 
         verify(teamRepository).delete(team);
+    }
+
+    @Test
+    void delete_shouldTranslateToConflict_whenConcurrentReferenceRace() {
+        when(teamRepository.findById(TEAM_ID)).thenReturn(Optional.of(existingTeam()));
+        when(epicRepository.existsByTeamId(TEAM_ID)).thenReturn(false);
+        when(ticketRepository.existsByTeamId(TEAM_ID)).thenReturn(false);
+        org.mockito.Mockito.doThrow(new DataIntegrityViolationException("fk"))
+                .when(teamRepository)
+                .flush();
+
+        assertThrows(ConflictException.class, () -> teamService.delete(TEAM_ID));
     }
 
     // --- helpers ---

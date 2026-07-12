@@ -565,7 +565,7 @@
                   </rules>
                   <excludes>
                     <exclude>**/*Application.*</exclude>
-                    <exclude>**/config/**</exclude>
+                    <exclude>**/config/*Config.*</exclude>
                     <exclude>**/mapper/*Impl*</exclude>
                     <exclude>**/model/**</exclude>
                   </excludes>

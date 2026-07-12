@@ -77,7 +77,7 @@ Feature: Email verification and resend
     And the captured messages are cleared
     When the user submits POST /api/v1/auth/verification/resend with email "<email>"
     Then the response status is 202
-    And no verification email is captured
+    And no verification email is captured for "<email>"
 
     Examples:
       | case             | precondition                                                  | email                |
@@ -87,8 +87,9 @@ Feature: Email verification and resend
   # === Resend rate limit ===
   Scenario: Resend rate limit returns 429 with Retry-After
     Given a new user signs up with email "ratelimit@example.com" and password "SecureP@ss1"
+    And a verification email is captured for "ratelimit@example.com"
     And the captured messages are cleared
     When the user submits POST /api/v1/auth/verification/resend with email "ratelimit@example.com" 6 times
     Then the last response status is 429
     And the last response includes a Retry-After header
-    And no further verification email is captured after the rate limit is hit
+    And no further verification email is captured for "ratelimit@example.com" after the rate limit is hit

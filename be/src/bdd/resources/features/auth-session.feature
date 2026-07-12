@@ -30,3 +30,20 @@ Feature: Auth session — login, current user, and logout
     Then the response status is 404
     And the response content type is "application/problem+json"
     And the response body contains members: status, title, correlationId, timestamp
+
+  Scenario Outline: Login is rejected for <case>
+    Given a registered user with email "<email>" and password "StrongPass123!"
+    And the email-verified flag for "<email>" is "<verified>"
+    When the user logs in with email "<email>" and password "<password>"
+    Then the response status is <status>
+
+    Examples:
+      | case                      | email                  | verified | password       | status |
+      | wrong password (verified) | wrongpass@example.com  | true     | WrongPass999!  | 401    |
+      | unverified account        | unverified@example.com | false    | StrongPass123! | 403    |
+
+  Scenario: Login rate limit returns 429 with Retry-After
+    Given a registered user with email "loginrl@example.com" and password "StrongPass123!"
+    When the user attempts to log in 6 times with email "loginrl@example.com" and password "WrongPass999!"
+    Then the response status is 429
+    And the response includes a Retry-After header

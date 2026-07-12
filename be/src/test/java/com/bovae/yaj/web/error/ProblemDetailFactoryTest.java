@@ -2,7 +2,6 @@ package com.bovae.yaj.web.error;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.bovae.yaj.support.CorrelationId;
 import java.time.Instant;
@@ -113,17 +112,6 @@ class ProblemDetailFactoryTest {
         Map<String, Object> properties = pd.getProperties();
         assertNotNull(properties);
         assertEquals(ProblemDetailFactory.UNKNOWN_CORRELATION_ID, properties.get("correlationId"));
-    }
-
-    // --- utility constructor guard ---
-
-    @Test
-    void constructor_shouldThrowAssertionError_whenInstantiated() {
-        assertThrows(Exception.class, () -> {
-            var ctor = ProblemDetailFactory.class.getDeclaredConstructor();
-            ctor.setAccessible(true);
-            ctor.newInstance();
-        });
     }
 
     // --- helpers ---

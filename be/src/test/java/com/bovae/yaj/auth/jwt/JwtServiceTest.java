@@ -103,7 +103,41 @@ class JwtServiceTest {
                 Arguments.of("expired", buildExpiredToken()),
                 Arguments.of("missing-sub", buildTokenWithoutSub()),
                 Arguments.of("missing-jti", buildTokenWithoutJti()),
-                Arguments.of("missing-exp", buildTokenWithoutExp()));
+                Arguments.of("missing-exp", buildTokenWithoutExp()),
+                Arguments.of("non-uuid-sub", buildTokenWithNonUuidSub()));
+    }
+
+    // --- parse fallback / boundary branches ---
+
+    @Test
+    void validateAccessToken_shouldDefaultIssuedAtToClock_whenIatMissing() {
+        when(tokenDenylist.contains(anyString())).thenReturn(false);
+        String token = Jwts.builder()
+                .subject(UUID.randomUUID().toString())
+                .id(UUID.randomUUID().toString())
+                .expiration(Date.from(FIXED_NOW.plus(TOKEN_TTL)))
+                .signWith(TEST_KEY, Jwts.SIG.HS256)
+                .compact();
+
+        TokenClaims claims = jwtService.validateAccessToken(token);
+
+        assertEquals(FIXED_NOW, claims.issuedAt(), "missing iat must fall back to the clock instant");
+    }
+
+    @Test
+    void validateAccessToken_shouldAccept_whenExpEqualsNow() {
+        when(tokenDenylist.contains(anyString())).thenReturn(false);
+        String token = Jwts.builder()
+                .subject(UUID.randomUUID().toString())
+                .id(UUID.randomUUID().toString())
+                .issuedAt(Date.from(FIXED_NOW))
+                .expiration(Date.from(FIXED_NOW))
+                .signWith(TEST_KEY, Jwts.SIG.HS256)
+                .compact();
+
+        TokenClaims claims = jwtService.validateAccessToken(token);
+
+        assertEquals(FIXED_NOW, claims.expiresAt(), "exp exactly at now is the boundary and must validate");
     }
 
     @Test
@@ -119,12 +153,17 @@ class JwtServiceTest {
     // --- helpers ---
 
     private static String tamperSignature(String token) {
-        // Flip the last char of the signature segment
+        // Flip the FIRST signature char, not the last. The last base64url char of a 32-byte HMAC
+        // signature only carries 4 significant bits (its low 2 bits are dropped when decoding), so
+        // flipping 'A'<->'B' there can leave the decoded signature unchanged (~1/16 of tokens) and
+        // the "tampered" token would still verify. The first char's 6 bits are all significant, so
+        // changing it always alters the signature and the token is guaranteed to be rejected.
         int lastDot = token.lastIndexOf('.');
+        String header = token.substring(0, lastDot + 1);
         String sigPart = token.substring(lastDot + 1);
-        char lastChar = sigPart.charAt(sigPart.length() - 1);
-        char flipped = (lastChar == 'A') ? 'B' : 'A';
-        return token.substring(0, token.length() - 1) + flipped;
+        char firstChar = sigPart.charAt(0);
+        char flipped = (firstChar == 'A') ? 'B' : 'A';
+        return header + flipped + sigPart.substring(1);
     }
 
     private static String buildExpiredToken() {
@@ -163,6 +202,16 @@ class JwtServiceTest {
                 .subject(UUID.randomUUID().toString())
                 .id(UUID.randomUUID().toString())
                 .issuedAt(Date.from(FIXED_NOW))
+                .signWith(TEST_KEY, Jwts.SIG.HS256)
+                .compact();
+    }
+
+    private static String buildTokenWithNonUuidSub() {
+        return Jwts.builder()
+                .subject("not-a-uuid")
+                .id(UUID.randomUUID().toString())
+                .issuedAt(Date.from(FIXED_NOW))
+                .expiration(Date.from(FIXED_NOW.plus(TOKEN_TTL)))
                 .signWith(TEST_KEY, Jwts.SIG.HS256)
                 .compact();
     }
