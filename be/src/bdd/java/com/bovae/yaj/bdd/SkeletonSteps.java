@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.bovae.yaj.domain.repository.TeamRepository;
 import com.bovae.yaj.domain.repository.UserRepository;
 import io.cucumber.datatable.DataTable;
 import io.cucumber.java.After;
@@ -34,11 +35,17 @@ public class SkeletonSteps {
     @Autowired
     private UserRepository userRepository;
 
+    @Autowired
+    private TeamRepository teamRepository;
+
     private RestClient restClient;
     private ResponseEntity<String> lastResponse;
 
     @Nullable
     private String accessToken;
+
+    @Nullable
+    private String boardTeamId;
 
     @Given("the application is running")
     public void theApplicationIsRunning() {
@@ -46,9 +53,10 @@ public class SkeletonSteps {
         assertNotNull(restClient, "RestClient should be created from a running app context");
     }
 
-    /** Removes users created by @skeleton scenarios so they don't leak into the shared DB. */
+    /** Removes teams and users created by @skeleton scenarios so they don't leak into the shared DB. */
     @After("@skeleton")
-    public void cleanupSkeletonUsers() {
+    public void cleanupSkeletonData() {
+        teamRepository.deleteAll();
         userRepository.deleteAll();
     }
 
@@ -101,20 +109,35 @@ public class SkeletonSteps {
         assertNotNull(accessToken, "Extracted access token should not be null");
     }
 
-    @When("the authenticated client requests the mock board endpoint")
-    public void theAuthenticatedClientRequestsTheMockBoardEndpoint() {
+    @Given("the authenticated client has created a team named {string}")
+    public void theAuthenticatedClientHasCreatedATeamNamed(String name) {
         assertNotNull(accessToken, "Access token should be available");
+        ResponseEntity<String> response = restClient
+                .post()
+                .uri("/api/v1/teams")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(Map.of("name", name))
+                .retrieve()
+                .toEntity(String.class);
+        assertEquals(201, response.getStatusCode().value(), "Team creation should return 201");
+        String body = response.getBody();
+        assertNotNull(body, "Team creation response body should not be null");
+        int start = body.indexOf("\"id\":\"") + "\"id\":\"".length();
+        int end = body.indexOf("\"", start);
+        boardTeamId = body.substring(start, end);
+    }
+
+    @When("the authenticated client requests that team's board")
+    public void theAuthenticatedClientRequestsThatTeamsBoard() {
+        assertNotNull(accessToken, "Access token should be available");
+        assertNotNull(boardTeamId, "A team must have been created before requesting its board");
         lastResponse = restClient
                 .get()
-                .uri("/api/v1/mock/board")
+                .uri("/api/v1/teams/" + boardTeamId + "/board")
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
                 .retrieve()
                 .toEntity(String.class);
-    }
-
-    @When("the client requests the mock board endpoint")
-    public void theClientRequestsTheMockBoardEndpoint() {
-        lastResponse = restClient.get().uri("/api/v1/mock/board").retrieve().toEntity(String.class);
     }
 
     @Then("the response contains exactly {int} columns")

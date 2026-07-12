@@ -1,110 +1,319 @@
 /**
- * BoardPage component tests: three mutually exclusive states (loading, success, error).
+ * BoardPage tests: team selector, five ordered/labelled columns, server-side filters (set/omit params),
+ * team-change epic reset, drag-and-drop optimistic move + revert, and the create/open entry points.
+ *
+ * `@dnd-kit/core` is mocked: jsdom can't reproduce real pointer physics, so `DndContext` just renders
+ * its children and exposes the `onDragEnd` handler, which the drag tests invoke directly. The click-vs-
+ * drag activation distance is covered by the Playwright smoke instead.
  */
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import type { ReactNode } from 'react'
-import { vi, type Mock } from 'vitest'
+import { MemoryRouter, Route, Routes } from 'react-router'
+import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
 import { BoardPage } from './BoardPage'
 import type { BoardView } from '../api/board'
 
-vi.mock('../api/board', () => ({
-  getMockBoard: vi.fn(),
+const dnd = vi.hoisted(() => ({ onDragEnd: undefined as ((event: unknown) => void) | undefined }))
+
+vi.mock('@dnd-kit/core', () => ({
+  DndContext: ({
+    children,
+    onDragEnd,
+  }: {
+    children: React.ReactNode
+    onDragEnd: (event: unknown) => void
+  }) => {
+    dnd.onDragEnd = onDragEnd
+    return children
+  },
+  useDraggable: () => ({
+    attributes: {},
+    listeners: {},
+    setNodeRef: () => {},
+    transform: null,
+    isDragging: false,
+  }),
+  useDroppable: () => ({ setNodeRef: () => {}, isOver: false }),
+  useSensor: () => ({}),
+  useSensors: () => [],
+  PointerSensor: class {},
+  KeyboardSensor: class {},
+  pointerWithin: () => [],
 }))
 
-// Import after mock so we get the mocked version
-import { getMockBoard } from '../api/board'
-const getMockBoardMock = getMockBoard as Mock
+vi.mock('@/api/board', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/api/board')>()),
+  getBoard: vi.fn(),
+}))
+vi.mock('@/api/teams', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/api/teams')>()),
+  listTeams: vi.fn(),
+}))
+vi.mock('@/api/epics', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/api/epics')>()),
+  listEpics: vi.fn(),
+}))
+vi.mock('@/api/tickets', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/api/tickets')>()),
+  patchTicketState: vi.fn(),
+  createTicket: vi.fn(),
+}))
 
-// --- helpers ---
+import { getBoard } from '@/api/board'
+import { listTeams } from '@/api/teams'
+import { listEpics } from '@/api/epics'
+import { patchTicketState } from '@/api/tickets'
 
-function createQueryClient() {
-  return new QueryClient({
-    defaultOptions: {
-      queries: {
-        retry: false,
-        gcTime: 0,
-      },
-    },
-  })
+const getBoardMock = getBoard as Mock
+const listTeamsMock = listTeams as Mock
+const listEpicsMock = listEpics as Mock
+const patchTicketStateMock = patchTicketState as Mock
+
+const STATES = ['new', 'ready_for_implementation', 'in_progress', 'ready_for_acceptance', 'done']
+const ORDERED_LABELS = [
+  'New',
+  'Ready for implementation',
+  'In progress',
+  'Ready for acceptance',
+  'Done',
+]
+
+function team(id: string, name: string) {
+  return { id, name, createdAt: '2026-07-12T00:00:00Z', modifiedAt: '2026-07-12T00:00:00Z' }
 }
 
-function Wrapper({ children }: { children: ReactNode }) {
-  return <QueryClientProvider client={createQueryClient()}>{children}</QueryClientProvider>
+function epic(id: string, teamId: string, title: string) {
+  return {
+    id,
+    teamId,
+    title,
+    createdAt: '2026-07-12T00:00:00Z',
+    modifiedAt: '2026-07-12T00:00:00Z',
+  }
 }
 
-const FIVE_COLUMNS: BoardView = {
-  columns: [
-    { state: 'new', label: 'New', cards: [] },
-    { state: 'ready_for_implementation', label: 'Ready', cards: [] },
-    { state: 'in_progress', label: 'In Progress', cards: [] },
-    { state: 'ready_for_acceptance', label: 'Acceptance', cards: [] },
-    { state: 'done', label: 'Done', cards: [{ id: '1', title: 'Card', type: 'bug' }] },
-  ],
+/** A full 5-column board; `cardsByState` places named cards into their column. */
+function board(
+  cardsByState: Record<string, { id: string; title: string; type?: string }[]> = {},
+): BoardView {
+  return {
+    columns: STATES.map((state) => ({
+      state,
+      cards: (cardsByState[state] ?? []).map((c) => ({
+        id: c.id,
+        title: c.title,
+        type: c.type ?? 'bug',
+      })),
+    })),
+  }
 }
 
-// --- tests ---
+function renderPage(initialEntries: string[] = ['/']) {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } })
+  render(
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={initialEntries}>
+        <Routes>
+          <Route path="/" element={<BoardPage />} />
+          <Route path="/tickets/:id" element={<div>Ticket details</div>} />
+          <Route path="/teams" element={<div>Teams screen</div>} />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
+  )
+  return queryClient
+}
+
+function column(label: string) {
+  return within(screen.getByRole('region', { name: label }))
+}
 
 describe('BoardPage', () => {
+  beforeEach(() => {
+    dnd.onDragEnd = undefined
+    listTeamsMock.mockResolvedValue([team('a', 'Alpha'), team('b', 'Beta')])
+    listEpicsMock.mockResolvedValue([])
+    getBoardMock.mockResolvedValue(board())
+    patchTicketStateMock.mockResolvedValue({})
+  })
+
   afterEach(() => {
     vi.resetAllMocks()
   })
 
-  it('render_shouldShowLoadingIndicator_whenFetchInFlight', () => {
-    // Never resolve — keeps query in pending state
-    getMockBoardMock.mockReturnValue(new Promise(() => {}))
+  // --- columns ---
 
-    render(<BoardPage />, { wrapper: Wrapper })
+  it('render_shouldShowFiveLabelledColumnsInWorkflowOrder_whenFetchSucceeds', async () => {
+    renderPage()
 
-    expect(screen.getByRole('status')).toBeInTheDocument()
-    expect(screen.queryByTestId('board')).not.toBeInTheDocument()
-    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
-  })
-
-  it('render_shouldShowFiveColumns_whenFetchSucceeds', async () => {
-    getMockBoardMock.mockResolvedValue(FIVE_COLUMNS)
-
-    render(<BoardPage />, { wrapper: Wrapper })
-
-    await waitFor(() => {
-      expect(screen.getByTestId('board')).toBeInTheDocument()
-    })
+    await waitFor(() => expect(screen.getByTestId('board')).toBeInTheDocument())
 
     const columns = screen.getAllByTestId('board-column')
-    expect(columns).toHaveLength(5)
-    expect(screen.queryByRole('status')).not.toBeInTheDocument()
-    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    expect(columns.map((c) => c.getAttribute('aria-label'))).toEqual(ORDERED_LABELS)
   })
 
-  it('render_shouldShowErrorIndicator_whenFetchFails', async () => {
-    getMockBoardMock.mockRejectedValue(new Error('network failure'))
+  it('render_shouldPromptToCreateTeam_whenNoTeams', async () => {
+    listTeamsMock.mockResolvedValue([])
+    renderPage()
 
-    render(<BoardPage />, { wrapper: Wrapper })
-
-    await waitFor(() => {
-      expect(screen.getByRole('alert')).toBeInTheDocument()
-    })
-
+    expect(await screen.findByText(/create a team to start/i)).toBeInTheDocument()
     expect(screen.queryByTestId('board')).not.toBeInTheDocument()
-    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+    expect(getBoardMock).not.toHaveBeenCalled()
   })
 
-  it('render_shouldRecover_whenRetryClickedAfterFailure', async () => {
-    getMockBoardMock
-      .mockRejectedValueOnce(new Error('network failure'))
-      .mockResolvedValue(FIVE_COLUMNS)
+  // --- filters ---
 
-    render(<BoardPage />, { wrapper: Wrapper })
+  it('filter_shouldSetTypeParam_whenTypePicked', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await screen.findByTestId('board')
 
-    await waitFor(() => {
-      expect(screen.getByRole('alert')).toBeInTheDocument()
+    await user.click(screen.getByRole('combobox', { name: /filter by type/i }))
+    await user.click(screen.getByRole('option', { name: 'Bug' }))
+
+    await waitFor(() =>
+      expect(getBoardMock).toHaveBeenCalledWith(
+        'a',
+        expect.objectContaining({ type: 'bug' }),
+        expect.anything(),
+      ),
+    )
+  })
+
+  it('filter_shouldOmitTypeParam_whenResetToAll', async () => {
+    const user = userEvent.setup()
+    renderPage(['/?type=bug'])
+    await screen.findByTestId('board')
+
+    await user.click(screen.getByRole('combobox', { name: /filter by type/i }))
+    await user.click(screen.getByRole('option', { name: 'All types' }))
+
+    await waitFor(() =>
+      expect(getBoardMock).toHaveBeenCalledWith(
+        'a',
+        expect.objectContaining({ type: undefined }),
+        expect.anything(),
+      ),
+    )
+  })
+
+  it('filter_shouldSendSearchTermAsQParam_afterDebounce', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await screen.findByTestId('board')
+
+    await user.type(screen.getByRole('textbox', { name: /search tickets/i }), 'login')
+
+    await waitFor(() =>
+      expect(getBoardMock).toHaveBeenCalledWith(
+        'a',
+        expect.objectContaining({ q: 'login' }),
+        expect.anything(),
+      ),
+    )
+  })
+
+  it('filter_shouldResetEpic_whenTeamChanges', async () => {
+    listEpicsMock.mockImplementation((teamId?: string) =>
+      Promise.resolve(
+        teamId === 'a' ? [epic('e1', 'a', 'Onboarding')] : [epic('e2', 'b', 'Billing')],
+      ),
+    )
+    const user = userEvent.setup()
+    renderPage(['/?teamId=a&epicId=e1'])
+    await screen.findByTestId('board')
+
+    await user.click(screen.getByRole('combobox', { name: /board team/i }))
+    await user.click(screen.getByRole('option', { name: 'Beta' }))
+
+    // Board now requests team b with no epic filter.
+    await waitFor(() =>
+      expect(getBoardMock).toHaveBeenCalledWith(
+        'b',
+        expect.objectContaining({ epicId: undefined }),
+        expect.anything(),
+      ),
+    )
+    expect(screen.getByRole('combobox', { name: /filter by epic/i })).toHaveTextContent('All epics')
+  })
+
+  // --- drag and drop ---
+
+  it('drag_shouldOptimisticallyMoveCardToTargetColumn_whenDropped', async () => {
+    getBoardMock.mockResolvedValue(board({ new: [{ id: 'k1', title: 'Login broken' }] }))
+    patchTicketStateMock.mockReturnValue(new Promise(() => {})) // stays pending → optimistic state holds
+    renderPage()
+    await waitFor(() => expect(column('New').getByText('Login broken')).toBeInTheDocument())
+
+    await act(async () => {
+      dnd.onDragEnd?.({
+        active: { id: 'k1', data: { current: { fromState: 'new' } } },
+        over: { id: 'in_progress' },
+      })
+      await Promise.resolve()
     })
 
-    fireEvent.click(screen.getByRole('button', { name: /try again/i }))
+    await waitFor(() => expect(column('In progress').getByText('Login broken')).toBeInTheDocument())
+    expect(column('New').queryByText('Login broken')).not.toBeInTheDocument()
+    expect(patchTicketStateMock).toHaveBeenCalledWith('k1', 'in_progress')
+  })
 
-    await waitFor(() => {
-      expect(screen.getByTestId('board')).toBeInTheDocument()
+  it('drag_shouldRevertAndShowError_whenPatchRejected', async () => {
+    getBoardMock.mockResolvedValue(board({ new: [{ id: 'k1', title: 'Login broken' }] }))
+    patchTicketStateMock.mockRejectedValue(new Error('boom'))
+    renderPage()
+    await waitFor(() => expect(column('New').getByText('Login broken')).toBeInTheDocument())
+
+    await act(async () => {
+      dnd.onDragEnd?.({
+        active: { id: 'k1', data: { current: { fromState: 'new' } } },
+        over: { id: 'in_progress' },
+      })
+      await Promise.resolve()
     })
-    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/could not move the ticket/i)
+    await waitFor(() => expect(column('New').getByText('Login broken')).toBeInTheDocument())
+  })
+
+  it('drag_shouldIssueNoRequest_whenDroppedOnSameColumn', async () => {
+    getBoardMock.mockResolvedValue(board({ new: [{ id: 'k1', title: 'Login broken' }] }))
+    renderPage()
+    await waitFor(() => expect(column('New').getByText('Login broken')).toBeInTheDocument())
+
+    await act(async () => {
+      dnd.onDragEnd?.({
+        active: { id: 'k1', data: { current: { fromState: 'new' } } },
+        over: { id: 'new' },
+      })
+      await Promise.resolve()
+    })
+
+    expect(patchTicketStateMock).not.toHaveBeenCalled()
+  })
+
+  // --- entry points ---
+
+  it('create_shouldOpenDialogPresetToSelectedTeam', async () => {
+    const user = userEvent.setup()
+    renderPage(['/?teamId=b'])
+    await screen.findByTestId('board')
+
+    await user.click(screen.getByRole('button', { name: /new ticket/i }))
+
+    const dialog = within(screen.getByRole('dialog'))
+    expect(dialog.getByRole('combobox', { name: 'Team' })).toHaveTextContent('Beta')
+  })
+
+  it('card_shouldNavigateToDetails_whenClicked', async () => {
+    getBoardMock.mockResolvedValue(board({ new: [{ id: 'k1', title: 'Login broken' }] }))
+    const user = userEvent.setup()
+    renderPage()
+    await waitFor(() => expect(screen.getByText('Login broken')).toBeInTheDocument())
+
+    await user.click(screen.getByText('Login broken'))
+
+    expect(await screen.findByText('Ticket details')).toBeInTheDocument()
   })
 })

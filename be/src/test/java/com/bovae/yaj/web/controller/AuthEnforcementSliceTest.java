@@ -37,12 +37,12 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
-@WebMvcTest(controllers = {AuthController.class, MockBoardController.class})
+@WebMvcTest(controllers = AuthController.class)
 @Import({SecurityConfig.class, ProblemAuthenticationEntryPoint.class, CorsConfig.class})
 class AuthEnforcementSliceTest {
 
     private static final String ME_URL = "/api/v1/auth/me";
-    private static final String MOCK_BOARD_URL = "/api/v1/mock/board";
+    private static final String BOARD_URL = "/api/v1/teams/11111111-1111-1111-1111-111111111111/board";
     private static final String ACTUATOR_INFO_URL = "/actuator/info";
     private static final String ACTUATOR_HEALTH_URL = "/actuator/health";
     private static final String VALID_TOKEN = "valid.jwt.token";
@@ -120,7 +120,9 @@ class AuthEnforcementSliceTest {
     // --- protected endpoints without token → 401 ---
 
     static Stream<String> protectedEndpoints() {
-        return Stream.of(ACTUATOR_INFO_URL);
+        // The real board path stands in for the deleted mock-board probe: any /api/v1/** path is
+        // rejected by default, so an unauthenticated board request proves 401-by-default (E15/D7).
+        return Stream.of(ACTUATOR_INFO_URL, BOARD_URL);
     }
 
     @ParameterizedTest(name = "endpoint={0} without token → 401")
@@ -130,15 +132,6 @@ class AuthEnforcementSliceTest {
                 .andExpect(status().isUnauthorized())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
                 .andExpect(jsonPath("$.status").value(401));
-    }
-
-    // --- mock board is public (E12 bridge) → reachable without token ---
-
-    @Test
-    void mockBoard_shouldNotReturn401_whenNoToken() throws Exception {
-        int statusCode =
-                mockMvc.perform(get(MOCK_BOARD_URL)).andReturn().getResponse().getStatus();
-        assertNotEquals(401, statusCode, "mock board is public (E12 bridge) and must not be rejected by security");
     }
 
     // --- /actuator/health reachable without token ---
