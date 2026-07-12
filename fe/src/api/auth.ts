@@ -10,6 +10,11 @@
  * — nothing renders their messages.
  */
 import { apiFetch } from './client'
+import { isObject, problemError } from './problem'
+
+// `ApiError` and problem parsing moved to `problem.ts` (D1); re-exported so existing auth imports and
+// tests keep resolving them from here.
+export { ApiError, GENERIC_ERROR_MESSAGE } from './problem'
 
 export const AUTH_LOGIN_PATH = '/api/v1/auth/login'
 export const AUTH_SIGNUP_PATH = '/api/v1/auth/signup'
@@ -17,24 +22,6 @@ export const AUTH_VERIFY_PATH = '/api/v1/auth/verify'
 export const AUTH_RESEND_PATH = '/api/v1/auth/verification/resend'
 export const AUTH_LOGOUT_PATH = '/api/v1/auth/logout'
 export const AUTH_ME_PATH = '/api/v1/auth/me'
-
-/** Shown when a failure response carries no parseable problem `detail` (network error, timeout, …). */
-export const GENERIC_ERROR_MESSAGE = 'Something went wrong. Please try again.'
-
-/**
- * A non-success auth response. `message` is the backend problem `detail` when present, otherwise
- * {@link GENERIC_ERROR_MESSAGE}; `status` is the HTTP status so callers can branch (403 → offer
- * resend, 429 → retry-later) without re-parsing the body.
- */
-export class ApiError extends Error {
-  readonly status: number
-
-  constructor(status: number, message: string) {
-    super(message)
-    this.name = 'ApiError'
-    this.status = status
-  }
-}
 
 /** Backend `LoginResponse(accessToken, tokenType, expiresInSeconds)`. */
 export interface LoginResponse {
@@ -177,23 +164,6 @@ export async function logout(): Promise<void> {
   }
 }
 
-/**
- * Build an {@link ApiError} from a non-success response, surfacing the RFC 9457 problem `detail`.
- * Falls back to {@link GENERIC_ERROR_MESSAGE} when the body is empty or not a parseable problem JSON.
- */
-async function problemError(res: Response): Promise<ApiError> {
-  let detail: string | null = null
-  try {
-    const body: unknown = await res.json()
-    if (isObject(body) && typeof body.detail === 'string' && body.detail.length > 0) {
-      detail = body.detail
-    }
-  } catch {
-    // Non-JSON or empty body (network error, timeout) — fall back to the generic message.
-  }
-  return new ApiError(res.status, detail ?? GENERIC_ERROR_MESSAGE)
-}
-
 function parseLoginResponse(payload: unknown): LoginResponse {
   if (
     !isObject(payload) ||
@@ -257,8 +227,4 @@ function parseMeResponse(payload: unknown): MeResponse {
     throw new Error('me response is missing required fields')
   }
   return { id: payload.id, email: payload.email, emailVerified: payload.emailVerified }
-}
-
-function isObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null
 }

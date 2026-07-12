@@ -29,7 +29,7 @@ are in the [Epic Catalog](#3-epic-catalog-major-one-by-one).
 - [x] **E11** — Frontend foundation (routing, auth context, design system)
 - [x] **E12** — FE auth screens
 - [x] **E6** — Epics CRUD (team-scoped) + delete guard
-- [ ] **E13** — FE team + epic management screens
+- [x] **E13** — FE team + epic management screens
 - [ ] **E7** — Tickets CRUD + validation + `modified_at`
 - [ ] **E8** — Comments
 - [ ] **E14** — FE ticket views + comments
