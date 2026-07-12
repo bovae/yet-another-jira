@@ -51,7 +51,15 @@ The frontend SHALL provide an edit action per epic opening a dialog pre-filled w
 - **THEN** the team renders as read-only text with no control to change it
 
 ### Requirement: Delete epic with confirmation
-The frontend SHALL provide a delete action per epic behind a confirmation dialog calling `DELETE /api/v1/epics/{id}`. A `204` removes the epic from the list; a `409` (tickets reference the epic) SHALL render the backend problem `detail` inside the dialog without removing the epic. (UI-side disabling for ticket references is deferred to E14, when a ticket API exists to compute them from; the backend guard is authoritative.)
+The frontend SHALL provide a delete action per epic behind a confirmation dialog calling `DELETE /api/v1/epics/{id}`. The delete control SHALL be disabled, with a clear message that the epic is referenced, when any ticket references the epic (computed from `GET /api/v1/tickets` grouped by `epicId`). When enabled and confirmed, a `204` removes the epic from the list; a `409` (reference created concurrently) SHALL render the backend problem `detail` inside the dialog without removing the epic — the backend guard stays authoritative.
+
+#### Scenario: Delete disabled for referenced epic
+- **WHEN** the tickets list contains at least one ticket whose `epicId` is the epic's id
+- **THEN** the epic's delete control is disabled and a clear referenced-epic message is available
+
+#### Scenario: Delete enabled for unreferenced epic
+- **WHEN** no ticket references the epic
+- **THEN** the delete control is enabled
 
 #### Scenario: Confirmed delete removes epic
 - **WHEN** the user confirms deletion and the backend returns `204`

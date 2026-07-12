@@ -16,15 +16,21 @@ vi.mock('@/api/epics', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/api/epics')>()),
   listEpics: vi.fn(),
 }))
+vi.mock('@/api/tickets', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/api/tickets')>()),
+  listTickets: vi.fn(),
+}))
 
 import { createTeam, deleteTeam, listTeams, renameTeam } from '@/api/teams'
 import { listEpics } from '@/api/epics'
+import { listTickets } from '@/api/tickets'
 
 const listTeamsMock = listTeams as Mock
 const createTeamMock = createTeam as Mock
 const renameTeamMock = renameTeam as Mock
 const deleteTeamMock = deleteTeam as Mock
 const listEpicsMock = listEpics as Mock
+const listTicketsMock = listTickets as Mock
 
 function team(id: string, name: string) {
   return { id, name, createdAt: '2026-07-12T00:00:00Z', modifiedAt: '2026-07-12T00:00:00Z' }
@@ -35,6 +41,20 @@ function epic(teamId: string) {
     id: `e-${teamId}`,
     teamId,
     title: 'Epic',
+    createdAt: '2026-07-12T00:00:00Z',
+    modifiedAt: '2026-07-12T00:00:00Z',
+  }
+}
+
+function ticket(teamId: string) {
+  return {
+    id: `k-${teamId}`,
+    teamId,
+    type: 'bug',
+    state: 'new',
+    title: 'Ticket',
+    body: 'body',
+    createdBy: 'u1',
     createdAt: '2026-07-12T00:00:00Z',
     modifiedAt: '2026-07-12T00:00:00Z',
   }
@@ -52,6 +72,7 @@ function renderPage() {
 describe('TeamsPage', () => {
   beforeEach(() => {
     listEpicsMock.mockResolvedValue([])
+    listTicketsMock.mockResolvedValue([])
   })
 
   afterEach(() => {
@@ -65,6 +86,19 @@ describe('TeamsPage', () => {
 
     expect(await screen.findByText('Alpha')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /delete alpha/i })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /^delete beta$/i })).toBeEnabled()
+  })
+
+  it('delete_shouldBeDisabled_whenTeamHasTicketsOnly', async () => {
+    listTeamsMock.mockResolvedValue([team('a', 'Alpha'), team('b', 'Beta')])
+    listTicketsMock.mockResolvedValue([ticket('a')])
+    renderPage()
+
+    expect(await screen.findByText('Alpha')).toBeInTheDocument()
+    // No epics reference either team; only tickets do — the ticket-referenced team is still disabled.
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /delete alpha/i })).toBeDisabled(),
+    )
     expect(screen.getByRole('button', { name: /^delete beta$/i })).toBeEnabled()
   })
 

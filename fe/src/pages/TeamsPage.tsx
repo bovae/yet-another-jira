@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { GENERIC_ERROR_MESSAGE } from '@/api/problem'
 import { listEpics } from '@/api/epics'
+import { listTickets } from '@/api/tickets'
 import {
   ApiError,
   createTeam,
@@ -36,7 +37,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { formatTimestamp } from '@/lib/utils'
 
-const REFERENCED_MESSAGE = 'This team has epics and cannot be deleted.'
+const REFERENCED_MESSAGE = 'This team has epics or tickets and cannot be deleted.'
 
 /**
  * Team management screen (D2, D3): lists teams from `GET /api/v1/teams`, with create/rename dialogs and
@@ -54,6 +55,11 @@ export function TeamsPage() {
   const epicsQuery = useQuery({
     queryKey: ['epics', 'all'],
     queryFn: ({ signal }) => listEpics(undefined, { signal }),
+  })
+  // Tickets also reference a team (D9); same non-fatal treatment as the epics reference query.
+  const ticketsQuery = useQuery({
+    queryKey: ['tickets', 'all'],
+    queryFn: ({ signal }) => listTickets(undefined, { signal }),
   })
 
   const [createOpen, setCreateOpen] = useState(false)
@@ -75,7 +81,10 @@ export function TeamsPage() {
   }
 
   const teams = teamsQuery.data
-  const teamIdsWithEpics = new Set((epicsQuery.data ?? []).map((epic) => epic.teamId))
+  const referencedTeamIds = new Set([
+    ...(epicsQuery.data ?? []).map((epic) => epic.teamId),
+    ...(ticketsQuery.data ?? []).map((ticket) => ticket.teamId),
+  ])
 
   return (
     <section className="flex flex-col gap-6">
@@ -92,7 +101,7 @@ export function TeamsPage() {
             <TeamRow
               key={team.id}
               team={team}
-              referenced={teamIdsWithEpics.has(team.id)}
+              referenced={referencedTeamIds.has(team.id)}
               onRename={() => setRenameTarget(team)}
               onDelete={() => setDeleteTarget(team)}
             />

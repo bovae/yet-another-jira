@@ -32,7 +32,7 @@ are in the [Epic Catalog](#3-epic-catalog-major-one-by-one).
 - [x] **E13** — FE team + epic management screens
 - [x] **E7** — Tickets CRUD + validation + `modified_at`
 - [x] **E8** — Comments
-- [ ] **E14** — FE ticket views + comments
+- [x] **E14** — FE ticket views + comments
 - [ ] **E9** — Board read (columns, ordering, filters, search)
 - [ ] **E15** — FE board + selector + filters + DnD
 - [ ] **E10** — Board drag-and-drop persistence

@@ -4,17 +4,20 @@ import { AppShell } from '@/components/layout/AppShell'
 import { BoardPage } from '@/pages/BoardPage'
 import { EpicsPage } from '@/pages/EpicsPage'
 import { LoginPage } from '@/pages/LoginPage'
-import { NotFound, Placeholder } from '@/pages/Placeholder'
+import { NotFound } from '@/pages/Placeholder'
 import { SignupPage } from '@/pages/SignupPage'
 import { TeamsPage } from '@/pages/TeamsPage'
+import { TicketDetailsPage } from '@/pages/TicketDetailsPage'
+import { TicketsPage } from '@/pages/TicketsPage'
 import { VerifyPage } from '@/pages/VerifyPage'
 
 /**
  * Route table for every §10 minimum screen. The public auth routes (E12) render the real screens;
  * `/verify-error` is the backend's browser-flow error-redirect target and reuses the verify page's
- * error variant. `/teams` and `/epics` render the real management screens (E13); the ticket route
- * (E14) is still a placeholder, and the mock board is the board placeholder. Business routes sit behind
- * {@link RequireAuth} inside the {@link AppShell} layout; anything else is a not-found.
+ * error variant. `/teams` and `/epics` render the real management screens (E13); `/tickets` and
+ * `/tickets/:id` render the real ticket list and details screens (E14). The mock board is still the
+ * board placeholder. Business routes sit behind {@link RequireAuth} inside the {@link AppShell} layout;
+ * anything else is a not-found.
  */
 export default function App() {
   return (
@@ -29,7 +32,8 @@ export default function App() {
           <Route path="/" element={<BoardPage />} />
           <Route path="/teams" element={<TeamsPage />} />
           <Route path="/epics" element={<EpicsPage />} />
-          <Route path="/tickets/:id" element={<Placeholder title="Ticket" />} />
+          <Route path="/tickets" element={<TicketsPage />} />
+          <Route path="/tickets/:id" element={<TicketDetailsPage />} />
         </Route>
       </Route>
 

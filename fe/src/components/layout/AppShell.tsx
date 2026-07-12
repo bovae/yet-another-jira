@@ -15,6 +15,7 @@ const NAV_LINKS = [
   { to: '/', label: 'Board', end: true },
   { to: '/teams', label: 'Teams', end: false },
   { to: '/epics', label: 'Epics', end: false },
+  { to: '/tickets', label: 'Tickets', end: false },
 ]
 
 /**
