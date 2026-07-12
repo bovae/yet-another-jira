@@ -10,7 +10,7 @@ import { Column } from '../components/Column'
 export function BoardPage() {
   const { data, isPending, isError, refetch, isFetching } = useQuery({
     queryKey: ['mock-board'],
-    queryFn: getMockBoard,
+    queryFn: ({ signal }) => getMockBoard({ signal }),
   })
 
   const content = isPending ? (

@@ -4,6 +4,7 @@ import com.bovae.yaj.auth.jwt.BearerTokenExtractor;
 import com.bovae.yaj.auth.jwt.JwtAuthenticationFilter;
 import com.bovae.yaj.auth.jwt.JwtService;
 import com.bovae.yaj.web.error.ProblemAuthenticationEntryPoint;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -28,6 +29,7 @@ public class SecurityConfig {
     private final BearerTokenExtractor bearerTokenExtractor;
     private final JwtService jwtService;
     private final ProblemAuthenticationEntryPoint authenticationEntryPoint;
+    private final ObjectMapper objectMapper;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http, CorsConfigurationSource corsConfigurationSource)
@@ -41,11 +43,15 @@ public class SecurityConfig {
                         .permitAll()
                         .requestMatchers("/actuator/health/**")
                         .permitAll()
+                        // Temporary: the mock board demos the stock compose stack before FE auth (E12)
+                        // exists. Remove this permitAll when E12 lands and the SPA can send a token.
+                        .requestMatchers("/api/v1/mock/board")
+                        .permitAll()
                         .anyRequest()
                         .authenticated())
                 .exceptionHandling(e -> e.authenticationEntryPoint(authenticationEntryPoint))
                 .addFilterBefore(
-                        new JwtAuthenticationFilter(bearerTokenExtractor, jwtService),
+                        new JwtAuthenticationFilter(bearerTokenExtractor, jwtService, objectMapper),
                         UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }

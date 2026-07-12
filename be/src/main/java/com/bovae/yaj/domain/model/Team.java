@@ -12,6 +12,7 @@ import lombok.Setter;
 import lombok.ToString;
 import org.hibernate.annotations.ColumnDefault;
 import org.hibernate.annotations.Generated;
+import org.hibernate.annotations.UpdateTimestamp;
 
 @Entity
 @Table(name = "teams")
@@ -35,8 +36,7 @@ public class Team {
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
-    @Generated
-    @ColumnDefault("now()")
+    @UpdateTimestamp
     @Column(name = "modified_at", nullable = false)
     private Instant modifiedAt;
 }

@@ -18,25 +18,24 @@ ESLint/Prettier, Vitest, Playwright).
 
 ## Epic Progress
 
-Tracking checklist — tick each epic as it lands (`[ ]` → `[x]`). Details for each
+Tracking checklist **in order** — tick each epic as it lands (`[ ]` → `[x]`). Details for each
 are in the [Epic Catalog](#3-epic-catalog-major-one-by-one).
-
 - [x] **E0** — Backend domain foundation
 - [x] **E1** — Sign-up + password hashing
 - [x] **E2** — Email verification + resend
 - [x] **E3** — Login / logout (JWT + denylist)
 - [x] **E4** — AuthN/AuthZ enforcement + current-user
-- [ ] **E5** — Teams CRUD + delete guard
-- [ ] **E6** — Epics CRUD (team-scoped) + delete guard
-- [ ] **E7** — Tickets CRUD + validation + `modified_at`
-- [ ] **E8** — Comments
-- [ ] **E9** — Board read (columns, ordering, filters, search)
-- [ ] **E10** — Board drag-and-drop persistence
+- [x] **E5** — Teams CRUD + delete guard
 - [ ] **E11** — Frontend foundation (routing, auth context, design system)
 - [ ] **E12** — FE auth screens
+- [ ] **E6** — Epics CRUD (team-scoped) + delete guard
 - [ ] **E13** — FE team + epic management screens
+- [ ] **E7** — Tickets CRUD + validation + `modified_at`
+- [ ] **E8** — Comments
 - [ ] **E14** — FE ticket views + comments
+- [ ] **E9** — Board read (columns, ordering, filters, search)
 - [ ] **E15** — FE board + selector + filters + DnD
+- [ ] **E10** — Board drag-and-drop persistence
 
 ---
 
@@ -45,7 +44,7 @@ are in the [Epic Catalog](#3-epic-catalog-major-one-by-one).
 | Layer | Already present | Status |
 |-------|-----------------|--------|
 | DB | Full schema via Liquibase (`users`, `verification_tokens`, `teams`, `epics`, `tickets`, `comments`, `ticket_types`, `ticket_states`), zero seed data | Done |
-| BE cross-cutting | Correlation-id filter, MDC cleanup, RFC 9457 `ProblemDetailFactory`/`GlobalProblemHandler`, CORS from `CorsProperties`, Valkey wiring + startup ping, Actuator health | Done |
+| BE cross-cutting | Correlation-id filter, MDC cleanup, RFC 9457 `ProblemDetailFactory`/`GlobalExceptionHandler`, CORS from `CorsProperties`, Valkey wiring + startup ping, Actuator health | Done |
 | BE security | `SecurityConfig` = `permitAll()` + stateless + CSRF off (the seam to replace) | Seam only |
 | BE API | `GET /api/v1/mock/board` (hardcoded) | Mock — to remove |
 | FE | Vite + React 19 + TS, `apiFetch` (10s timeout), TanStack Query, `@dnd-kit` (inert), **Tailwind v4** encoding the `DESIGN.md` Vercel tokens via `@theme` (stock palette + type scale reset out), board page rendering the mock | Scaffold |
@@ -62,7 +61,7 @@ behind the `mail` compose profile).
 
 ```mermaid
 graph TD
-    SK[Skeleton 001 - DONE]:::done
+    SK[Skeleton]:::done
 
     subgraph Auth Spine
       A1[E1 Sign-up + password hashing]
@@ -151,7 +150,7 @@ validation/error contract, and a definition of done. Requirement section numbers
 > Conventions every epic must honor:
 > - **Layering:** controller (HTTP only) → service (business rules + `@Transactional`) → repository. No business logic in controllers; no persistence in controllers.
 > - **Entities** live in a `*.model` package (JaCoCo-excluded). **Services/controllers carry logic and must be unit-tested.** MapStruct mappers in a `mapper` package.
-> - **Errors:** use `ProblemDetailFactory` + typed exceptions mapped in `GlobalProblemHandler`. `400` validation, `401` auth, `403` forbidden, `404` missing, `409` conflict (delete guards, uniqueness).
+> - **Errors:** use `ProblemDetailFactory` + typed exceptions mapped in `GlobalExceptionHandler`. `400` validation, `401` auth, `403` forbidden, `404` missing, `409` conflict (delete guards, uniqueness).
 > - **Timestamps:** server-set, UTC, ISO-8601 in API. **IDs:** UUID.
 > - **Validation is server-side and authoritative** (client validation is never sufficient — §6, §9).
 > - **Tests are part of the epic**, not an afterthought: keep JaCoCo 90/90 green and add BDD coverage for the primary flow.
@@ -175,7 +174,7 @@ seam).
   delete guards need (e.g. `existsByTeamId`, `existsByEpicId`, `countByTicketId`).
 - Shared: a small `domain` exception hierarchy (`NotFoundException`,
   `ConflictException`, `ValidationException`, `UnauthorizedException`) mapped
-  centrally in `GlobalProblemHandler`; a `ticket_type` / `ticket_state` enum with
+  centrally in `GlobalExceptionHandler`; a `ticket_type` / `ticket_state` enum with
   parse/validate helpers; `Instant`/UTC timestamp handling (`@PrePersist`/
   `@PreUpdate` only where a column isn't DB-defaulted — note `modified_at` is
   managed explicitly by the ticket service, see E7).
@@ -185,7 +184,7 @@ exception→Problem mapping unit-tested; build + 90/90 green.
 ---
 
 ### E1 — Sign-up + password hashing
-**Depends on:** E0 · **Requirement refs:** §3 (sign-up, password rules), §16
+**Depends on:** E0 · **Requirement refs:** §3 (sign-up, password rules), §11 (hashing, no secrets)
 **Scope:** `POST /api/v1/auth/signup`.
 
 - Email: trim, compare case-insensitively (DB `citext` already enforces), reject
@@ -203,7 +202,7 @@ password→validation); BDD: sign up then verify the user row exists unverified.
 ---
 
 ### E2 — Email verification + resend
-**Depends on:** E1 · **Requirement refs:** §3 (verification, expiry, resend), §10/§16 (SMTP)
+**Depends on:** E1 · **Requirement refs:** §3 (verification, expiry, resend, SMTP), §11 (no SMTP secrets in source)
 **Scope:** token issue on signup, `GET/POST /api/v1/auth/verify`, `POST /api/v1/auth/verification/resend`.
 
 - On signup, issue a single-use verification token: store **only its hash** in
@@ -456,20 +455,21 @@ Batches are the build order. Each batch ends **green** (compiles, lints, unit +
 BDD + FE tests pass, JaCoCo 90/90) before the next begins. Backend contracts land
 before the matching FE screens so the UI integrates against real endpoints.
 
-| Batch | Epics | Theme | Exit criteria |
-|-------|-------|-------|---------------|
-| **0** | E0 | Backend domain foundation | Entities + repositories load against Testcontainers Postgres; exception→Problem mapping tested. |
-| **1** | E1, E2, E3, E4 | Authentication spine (signup → verify → login/logout → enforcement) | Full auth flow works end-to-end; `permitAll()` replaced; protected routes `401` without a token. |
-| **2** | E5 | Teams CRUD + delete guard | Team lifecycle + `409` guards via API/BDD. |
-| **3** | E6 | Epics CRUD (team-scoped) + delete guard | Epic lifecycle; team immutable; `409` when referenced. |
-| **4** | E7 | Tickets CRUD + validation + `modified_at` | Tickets create/edit/state/delete; same-team rule; `modified_at` semantics. |
-| **5** | E8 | Comments | Add/list oldest-first; ticket `modified_at` untouched. |
-| **6** | E9 | Board read (+ remove mock) | Real `GET /teams/{id}/board`: 5 ordered columns, filters, search. |
-| **7** | E11, E12 | FE foundation + auth screens | App shell + guard + auth UIs against the real auth API. |
-| **8** | E13 | FE team + epic management | Management screens with reference-aware disabled delete. |
-| **9** | E14 | FE ticket views + comments | Ticket create/edit/details + comment thread. |
-| **10** | E15, E10 | FE board + DnD persistence | Primary board: selector, filters, drag-persist with revert-on-failure. |
-| **11** | — | Integration, security cutover, e2e, docs | Mock fully removed; Playwright happy-path (signup→verify→login→team→epic→ticket→board→drag); README/config updated; full gate green; Definition of Done (§13) satisfied. |
+| Batch  | Epics          | Theme                                                                      | Exit criteria                                                                                                                                                            |
+|--------|----------------|----------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| **0**  | E0             | Backend domain foundation                                                  | Entities + repositories load against Testcontainers Postgres; exception→Problem mapping tested.                                                                          |
+| **1**  | E1, E2, E3, E4 | Authentication spine (signup → verify → login/logout → enforcement)        | Full auth flow works end-to-end; `permitAll()` replaced; protected routes `401` without a token.                                                                         |
+| **2**  | E5             | Teams CRUD + delete guard                                                  | Team lifecycle + `409` guards via API/BDD.                                                                                                                               |
+| **3**  | E11            | FE foundation (needs only E4 — pulled ahead of the remaining backend CRUD) | App shell, router + guard, auth context, shadcn bridge; mock board stays as the board placeholder.                                                                       |
+| **4**  | E12            | FE auth screens                                                            | Sign-up/login/verify/resend UIs against the real auth API.                                                                                                               |
+| **5**  | E6             | Epics CRUD (team-scoped) + delete guard                                    | Epic lifecycle; team immutable; `409` when referenced.                                                                                                                   |
+| **6**  | E13            | FE team + epic management                                                  | Management screens with reference-aware disabled delete.                                                                                                                 |
+| **7**  | E7             | Tickets CRUD + validation + `modified_at`                                  | Tickets create/edit/state/delete; same-team rule; `modified_at` semantics.                                                                                               |
+| **8**  | E8             | Comments                                                                   | Add/list oldest-first; ticket `modified_at` untouched.                                                                                                                   |
+| **9**  | E14            | FE ticket views + comments                                                 | Ticket create/edit/details + comment thread.                                                                                                                             |
+| **10** | E9             | Board read (+ remove mock)                                                 | Real `GET /teams/{id}/board`: 5 ordered columns, filters, search.                                                                                                        |
+| **11** | E15, E10       | FE board + DnD persistence                                                 | Primary board: selector, filters, drag-persist with revert-on-failure.                                                                                                   |
+| **12** | —              | Integration, security cutover, e2e, docs                                   | Mock fully removed; Playwright happy-path (signup→verify→login→team→epic→ticket→board→drag); README/config updated; full gate green; Definition of Done (§13) satisfied. |
 
 ### Per-batch checklist
 1. Implement controller → service → repository for the slice (server-side

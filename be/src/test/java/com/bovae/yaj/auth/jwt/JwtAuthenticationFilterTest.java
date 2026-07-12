@@ -1,14 +1,17 @@
 package com.bovae.yaj.auth.jwt;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.bovae.yaj.error.UnauthorizedException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.FilterChain;
 import java.time.Instant;
 import java.util.List;
@@ -22,6 +25,8 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataAccessResourceFailureException;
+import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -30,6 +35,8 @@ import org.springframework.security.core.context.SecurityContextHolder;
 
 @ExtendWith(MockitoExtension.class)
 class JwtAuthenticationFilterTest {
+
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     @Mock
     private BearerTokenExtractor bearerTokenExtractor;
@@ -60,7 +67,7 @@ class JwtAuthenticationFilterTest {
         request.addHeader("Authorization", header);
         MockHttpServletResponse response = new MockHttpServletResponse();
 
-        JwtAuthenticationFilter filter = new JwtAuthenticationFilter(bearerTokenExtractor, jwtService);
+        JwtAuthenticationFilter filter = new JwtAuthenticationFilter(bearerTokenExtractor, jwtService, OBJECT_MAPPER);
         filter.doFilterInternal(request, response, chain);
 
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
@@ -80,7 +87,7 @@ class JwtAuthenticationFilterTest {
         request.addHeader("Authorization", "Bearer some.token");
         MockHttpServletResponse response = new MockHttpServletResponse();
 
-        JwtAuthenticationFilter filter = new JwtAuthenticationFilter(bearerTokenExtractor, jwtService);
+        JwtAuthenticationFilter filter = new JwtAuthenticationFilter(bearerTokenExtractor, jwtService, OBJECT_MAPPER);
         filter.doFilterInternal(request, response, chain);
 
         assertSame(existingAuth, SecurityContextHolder.getContext().getAuthentication());
@@ -107,11 +114,37 @@ class JwtAuthenticationFilterTest {
             when(jwtService.validateAccessToken("some.token")).thenThrow(new UnauthorizedException("expired"));
         }
 
-        JwtAuthenticationFilter filter = new JwtAuthenticationFilter(bearerTokenExtractor, jwtService);
+        JwtAuthenticationFilter filter = new JwtAuthenticationFilter(bearerTokenExtractor, jwtService, OBJECT_MAPPER);
         filter.doFilterInternal(request, response, chain);
 
         assertNull(SecurityContextHolder.getContext().getAuthentication());
         verify(chain).doFilter(request, response);
+    }
+
+    @Test
+    void doFilterInternal_shouldFailClosedWith503_whenDenylistStoreUnreachable() throws Exception {
+        String header = "Bearer some.token";
+        when(bearerTokenExtractor.extract(header)).thenReturn("some.token");
+        when(jwtService.validateAccessToken("some.token"))
+                .thenThrow(new DataAccessResourceFailureException("valkey down"));
+
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.addHeader("Authorization", header);
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        JwtAuthenticationFilter filter = new JwtAuthenticationFilter(bearerTokenExtractor, jwtService, OBJECT_MAPPER);
+        filter.doFilterInternal(request, response, chain);
+
+        assertEquals(503, response.getStatus());
+        assertNotNull(response.getContentType());
+        assertTrue(
+                response.getContentType().startsWith(MediaType.APPLICATION_PROBLEM_JSON_VALUE),
+                "content type must be RFC 9457 problem+json");
+        assertNull(SecurityContextHolder.getContext().getAuthentication(), "must fail closed, not authenticate");
+        verifyNoInteractions(chain);
+        String body = response.getContentAsString();
+        assertFalse(body.contains("valkey"), "body must not leak infrastructure detail");
+        assertFalse(body.toLowerCase().contains("exception"), "body must not leak stack trace");
     }
 
     static Stream<Arguments> failureCases() {

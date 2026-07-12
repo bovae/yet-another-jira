@@ -2,6 +2,8 @@ package com.bovae.yaj.auth.logout;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -86,6 +88,20 @@ class LogoutServiceTest {
         verify(tokenDenylist).revoke(jtiCaptor.capture(), ttlCaptor.capture());
         assertEquals("denylisted-jti", jtiCaptor.getValue());
         assertEquals(Duration.ofSeconds(600), ttlCaptor.getValue());
+    }
+
+    // --- already-expired token: non-positive TTL is not recorded ---
+
+    @Test
+    void logout_shouldNotRevoke_whenTokenTtlNonPositive() {
+        // expiresAt == now → ttl is zero, which is not positive
+        TokenClaims claims = new TokenClaims(UUID.randomUUID(), "expired-jti", FIXED_NOW, FIXED_NOW);
+        when(bearerTokenExtractor.extract(AUTH_HEADER)).thenReturn(RAW_TOKEN);
+        when(jwtService.parseForRevocation(RAW_TOKEN)).thenReturn(claims);
+
+        logoutService.logout(AUTH_HEADER);
+
+        verify(tokenDenylist, never()).revoke(any(), any());
     }
 
     // --- failure: missing/malformed header → UnauthorizedException ---

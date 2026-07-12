@@ -1,10 +1,10 @@
 package com.bovae.yaj.auth.verification;
 
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.never;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -12,7 +12,7 @@ import com.bovae.yaj.auth.token.TokenHasher;
 import com.bovae.yaj.config.properties.VerificationProperties;
 import com.bovae.yaj.error.RateLimitException;
 import java.time.Duration;
-import java.util.concurrent.TimeUnit;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -21,8 +21,12 @@ import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.data.redis.core.ValueOperations;
+import org.springframework.data.redis.core.script.RedisScript;
 
+/**
+ * The limiter algorithm is covered once in {@code FixedWindowRateLimiterTest}; this test only pins
+ * that the resend wrapper wires the correct key prefix, limit, and rejection message into the delegate.
+ */
 @ExtendWith(MockitoExtension.class)
 class ResendRateLimiterTest {
 
@@ -35,16 +39,13 @@ class ResendRateLimiterTest {
     private StringRedisTemplate stringRedisTemplate;
 
     @Mock
-    private ValueOperations<String, String> valueOperations;
-
-    @Mock
     private TokenHasher tokenHasher;
 
     @Mock
     private VerificationProperties verificationProperties;
 
     @Captor
-    private ArgumentCaptor<String> keyCaptor;
+    private ArgumentCaptor<List<String>> keysCaptor;
 
     private ResendRateLimiter resendRateLimiter;
 
@@ -56,81 +57,20 @@ class ResendRateLimiterTest {
     }
 
     @Test
-    void checkAndIncrement_shouldSetTtl_whenFirstRequest() {
-        when(stringRedisTemplate.opsForValue()).thenReturn(valueOperations);
+    @SuppressWarnings("unchecked")
+    void checkAndIncrement_shouldWireResendPrefixLimitAndMessage_intoDelegate() {
         when(tokenHasher.hash(EMAIL)).thenReturn(HASHED_EMAIL);
-        when(valueOperations.increment("verif:resend:rl:" + HASHED_EMAIL)).thenReturn(1L);
-
-        assertDoesNotThrow(() -> resendRateLimiter.checkAndIncrement(EMAIL));
-
-        verify(stringRedisTemplate).expire("verif:resend:rl:" + HASHED_EMAIL, RATE_WINDOW);
-    }
-
-    @Test
-    void checkAndIncrement_shouldNotSetTtl_whenNotFirstRequest() {
-        when(stringRedisTemplate.opsForValue()).thenReturn(valueOperations);
-        when(tokenHasher.hash(EMAIL)).thenReturn(HASHED_EMAIL);
-        when(valueOperations.increment("verif:resend:rl:" + HASHED_EMAIL)).thenReturn(2L);
-
-        assertDoesNotThrow(() -> resendRateLimiter.checkAndIncrement(EMAIL));
-
-        verify(stringRedisTemplate, never()).expire(any(String.class), any(Duration.class));
-    }
-
-    @Test
-    void checkAndIncrement_shouldThrowRateLimitException_whenCountExceedsLimit() {
-        String key = "verif:resend:rl:" + HASHED_EMAIL;
-        when(stringRedisTemplate.opsForValue()).thenReturn(valueOperations);
-        when(tokenHasher.hash(EMAIL)).thenReturn(HASHED_EMAIL);
-        when(valueOperations.increment(key)).thenReturn(6L);
-        when(stringRedisTemplate.getExpire(key, TimeUnit.SECONDS)).thenReturn(542L);
+        when(stringRedisTemplate.execute(any(RedisScript.class), anyList(), any()))
+                .thenReturn((long) RATE_LIMIT + 1);
+        when(stringRedisTemplate.getExpire(anyString(), any())).thenReturn(542L);
 
         RateLimitException ex =
                 assertThrows(RateLimitException.class, () -> resendRateLimiter.checkAndIncrement(EMAIL));
 
-        assertEquals(542L, ex.getRetryAfterSeconds(), "retryAfterSeconds must come from key TTL");
-    }
-
-    @Test
-    void checkAndIncrement_shouldReArmTtlAndReportWindow_whenLimitExceededButTtlMissing() {
-        String key = "verif:resend:rl:" + HASHED_EMAIL;
-        when(stringRedisTemplate.opsForValue()).thenReturn(valueOperations);
-        when(tokenHasher.hash(EMAIL)).thenReturn(HASHED_EMAIL);
-        when(valueOperations.increment(key)).thenReturn(6L);
-        when(stringRedisTemplate.getExpire(key, TimeUnit.SECONDS)).thenReturn(-1L);
-
-        RateLimitException ex =
-                assertThrows(RateLimitException.class, () -> resendRateLimiter.checkAndIncrement(EMAIL));
-
-        assertEquals(
-                RATE_WINDOW.toSeconds(),
-                ex.getRetryAfterSeconds(),
-                "retryAfterSeconds must fall back to the full window when the key lost its TTL");
-        verify(stringRedisTemplate).expire(key, RATE_WINDOW);
-    }
-
-    @Test
-    void checkAndIncrement_shouldUseHashedEmailAsKey_notRawEmail() {
-        when(stringRedisTemplate.opsForValue()).thenReturn(valueOperations);
-        when(tokenHasher.hash(EMAIL)).thenReturn(HASHED_EMAIL);
-        when(valueOperations.increment(keyCaptor.capture())).thenReturn(1L);
-
-        resendRateLimiter.checkAndIncrement(EMAIL);
-
-        String capturedKey = keyCaptor.getValue();
-        assertEquals("verif:resend:rl:" + HASHED_EMAIL, capturedKey, "key must use hashed email");
-        assertEquals(-1, capturedKey.indexOf(EMAIL), "key must not contain raw email address");
-    }
-
-    @Test
-    void checkAndIncrement_shouldLowercaseEmailBeforeHashing() {
-        String mixedCase = "User@Example.COM";
-        when(stringRedisTemplate.opsForValue()).thenReturn(valueOperations);
-        when(tokenHasher.hash("user@example.com")).thenReturn(HASHED_EMAIL);
-        when(valueOperations.increment("verif:resend:rl:" + HASHED_EMAIL)).thenReturn(1L);
-
-        resendRateLimiter.checkAndIncrement(mixedCase);
-
-        verify(tokenHasher).hash("user@example.com");
+        assertEquals("Too many resend requests. Please try again later.", ex.getMessage());
+        verify(stringRedisTemplate).execute(any(RedisScript.class), keysCaptor.capture(), any());
+        String key = keysCaptor.getValue().get(0);
+        assertEquals("verif:resend:rl:" + HASHED_EMAIL, key, "must use the resend key prefix");
+        assertEquals(-1, key.indexOf(EMAIL), "key must not contain the raw email address");
     }
 }

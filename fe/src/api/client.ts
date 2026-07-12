@@ -14,8 +14,10 @@ export const TOKEN_KEY = 'accessToken'
 
 /**
  * Fetch against the API with a hard timeout. Attaches a Bearer token from localStorage if present.
+ * A caller-supplied `init.signal` (e.g. TanStack Query's cancellation signal) is honored alongside
+ * the timeout — whichever fires first aborts the request.
  *
- * @throws DOMException (name `AbortError`) when the request exceeds the timeout
+ * @throws DOMException (name `AbortError`) when the timeout elapses or the caller aborts
  */
 export async function apiFetch(path: string, init: RequestInit = {}): Promise<Response> {
   const controller = new AbortController()
@@ -27,11 +29,13 @@ export async function apiFetch(path: string, init: RequestInit = {}): Promise<Re
     headers.set('Authorization', `Bearer ${token}`)
   }
 
+  const signal = init.signal ? AbortSignal.any([controller.signal, init.signal]) : controller.signal
+
   try {
     return await fetch(path, {
       ...init,
       headers,
-      signal: controller.signal,
+      signal,
     })
   } finally {
     clearTimeout(timeout)

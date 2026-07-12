@@ -35,6 +35,9 @@ public class AuthSessionSteps {
     @Nullable
     private String accessToken;
 
+    @Nullable
+    private String lastRegisteredEmail;
+
     @Given("a registered user with email {string} and password {string}")
     public void aRegisteredUserWithEmailAndPassword(String email, String password) {
         RestTemplate restTemplate = restTemplate();
@@ -47,28 +50,42 @@ public class AuthSessionSteps {
         assertTrue(
                 response.getStatusCode().is2xxSuccessful(),
                 "Signup should succeed. Status: " + response.getStatusCode());
+        lastRegisteredEmail = email;
     }
 
     @And("the user's email is verified")
     public void theUsersEmailIsVerified() {
-        var users = userRepository.findAll();
-        assertNotNull(users, "Users list should not be null");
-        assertTrue(!users.isEmpty(), "At least one user should exist");
-        User user = users.get(users.size() - 1);
-        user.setEmailVerified(true);
-        userRepository.saveAndFlush(user);
+        assertNotNull(lastRegisteredEmail, "A user must be registered before verifying");
+        setEmailVerified(lastRegisteredEmail, true);
+    }
+
+    @And("the email-verified flag for {string} is {string}")
+    public void theEmailVerifiedFlagForIs(String email, String verified) {
+        setEmailVerified(email, Boolean.parseBoolean(verified));
     }
 
     @When("the user logs in with email {string} and password {string}")
     public void theUserLogsInWithEmailAndPassword(String email, String password) {
-        RestTemplate restTemplate = restTemplate();
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        HttpEntity<Map<String, String>> request =
-                new HttpEntity<>(Map.of("email", email, "password", password), headers);
-        ResponseEntity<String> response =
-                restTemplate.postForEntity(baseUrl() + "/api/v1/auth/login", request, String.class);
+        sharedState.setLastResponse(login(email, password));
+    }
+
+    @When("the user attempts to log in {int} times with email {string} and password {string}")
+    public void theUserAttemptsToLogInNTimes(int times, String email, String password) {
+        ResponseEntity<String> response = null;
+        for (int i = 0; i < times; i++) {
+            response = login(email, password);
+        }
+        assertNotNull(response, "At least one login attempt must be made");
         sharedState.setLastResponse(response);
+    }
+
+    @And("the response includes a Retry-After header")
+    public void theResponseIncludesARetryAfterHeader() {
+        ResponseEntity<String> response = sharedState.getLastResponse();
+        assertNotNull(response, "Response should not be null");
+        String retryAfter = response.getHeaders().getFirst("Retry-After");
+        assertNotNull(retryAfter, "Retry-After header should be present");
+        assertTrue(retryAfter.matches("\\d+"), "Retry-After should be numeric. Got: " + retryAfter);
     }
 
     @And("the response body contains an access token")
@@ -83,6 +100,8 @@ public class AuthSessionSteps {
         int end = body.indexOf("\"", start);
         accessToken = body.substring(start, end);
         assertNotNull(accessToken, "Extracted access token should not be null");
+        // Publish to shared state so other step classes (e.g. team steps) can authenticate.
+        sharedState.setAccessToken(accessToken);
     }
 
     @When("the user requests current-user without an access token")
@@ -178,6 +197,21 @@ public class AuthSessionSteps {
     }
 
     // --- Helpers ---
+
+    private ResponseEntity<String> login(String email, String password) {
+        RestTemplate restTemplate = restTemplate();
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        HttpEntity<Map<String, String>> request =
+                new HttpEntity<>(Map.of("email", email, "password", password), headers);
+        return restTemplate.postForEntity(baseUrl() + "/api/v1/auth/login", request, String.class);
+    }
+
+    private void setEmailVerified(String email, boolean verified) {
+        User user = userRepository.findByEmail(email).orElseThrow(() -> new AssertionError("User not found: " + email));
+        user.setEmailVerified(verified);
+        userRepository.saveAndFlush(user);
+    }
 
     private String baseUrl() {
         return "http://localhost:" + port;

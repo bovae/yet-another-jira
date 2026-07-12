@@ -120,7 +120,7 @@ class AuthEnforcementSliceTest {
     // --- protected endpoints without token → 401 ---
 
     static Stream<String> protectedEndpoints() {
-        return Stream.of(MOCK_BOARD_URL, ACTUATOR_INFO_URL);
+        return Stream.of(ACTUATOR_INFO_URL);
     }
 
     @ParameterizedTest(name = "endpoint={0} without token → 401")
@@ -130,6 +130,15 @@ class AuthEnforcementSliceTest {
                 .andExpect(status().isUnauthorized())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
                 .andExpect(jsonPath("$.status").value(401));
+    }
+
+    // --- mock board is public (E12 bridge) → reachable without token ---
+
+    @Test
+    void mockBoard_shouldNotReturn401_whenNoToken() throws Exception {
+        int statusCode =
+                mockMvc.perform(get(MOCK_BOARD_URL)).andReturn().getResponse().getStatus();
+        assertNotEquals(401, statusCode, "mock board is public (E12 bridge) and must not be rejected by security");
     }
 
     // --- /actuator/health reachable without token ---
