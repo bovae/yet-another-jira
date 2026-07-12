@@ -86,6 +86,8 @@ export function TicketFormDialog({
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['tickets'] })
+      // The board reads the same tickets; keep it fresh after a create or edit from any screen (D6).
+      void queryClient.invalidateQueries({ queryKey: ['board'] })
       if (isEdit) {
         void queryClient.invalidateQueries({ queryKey: ['ticket', ticket.id] })
       }

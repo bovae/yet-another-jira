@@ -22,14 +22,20 @@ public interface TicketRepository extends JpaRepository<Ticket, UUID> {
      * ordered most-recently-modified first. Backed by the {@code (team_id, state)} index. The pattern
      * is lower-cased by the caller — the column side is {@code LOWER(title)} — so no {@code LOWER()} is
      * applied to the bind parameter (a null bind would otherwise resolve to {@code lower(bytea)}).
+     *
+     * <p>The nullable {@code String} params are wrapped in {@code CAST(... AS String)} inside their
+     * {@code IS NULL} checks: the runtime datasource sets {@code stringtype=unspecified} (needed for the
+     * {@code citext} columns), so pgjdbc sends a bare {@code String} bind with an unknown type and
+     * Postgres cannot type a standalone {@code $n IS NULL} — the cast supplies the type. The
+     * {@code = :type} / {@code LIKE :titlePattern} uses are already typed by their column side.
      */
     @Query(
             """
             SELECT t FROM Ticket t
             WHERE t.teamId = :teamId
-              AND (:type IS NULL OR t.type = :type)
+              AND (CAST(:type AS String) IS NULL OR t.type = :type)
               AND (:epicId IS NULL OR t.epicId = :epicId)
-              AND (:titlePattern IS NULL OR LOWER(t.title) LIKE :titlePattern ESCAPE '\\')
+              AND (CAST(:titlePattern AS String) IS NULL OR LOWER(t.title) LIKE :titlePattern ESCAPE '\\')
             ORDER BY t.modifiedAt DESC
             """)
     List<Ticket> findBoardTickets(

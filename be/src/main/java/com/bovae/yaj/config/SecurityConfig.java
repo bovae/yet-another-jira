@@ -43,10 +43,6 @@ public class SecurityConfig {
                         .permitAll()
                         .requestMatchers("/actuator/health/**")
                         .permitAll()
-                        // Temporary: the mock board demos the stock compose stack before FE auth (E12)
-                        // exists. Remove this permitAll when E12 lands and the SPA can send a token.
-                        .requestMatchers("/api/v1/mock/board")
-                        .permitAll()
                         .anyRequest()
                         .authenticated())
                 .exceptionHandling(e -> e.authenticationEntryPoint(authenticationEntryPoint))

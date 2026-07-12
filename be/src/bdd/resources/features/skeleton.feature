@@ -20,11 +20,12 @@ Feature: Skeleton boot verification
       | tickets    |
       | comments   |
 
-  # === Mock Board ===
-  Scenario: Mock board returns five columns in canonical workflow order
+  # === Board ===
+  Scenario: The board returns five columns in canonical workflow order
     Given a registered and verified user with email "skeleton@example.com" and password "StrongPass123!"
     And the user is logged in with email "skeleton@example.com" and password "StrongPass123!"
-    When the authenticated client requests the mock board endpoint
+    And the authenticated client has created a team named "Skeleton Team"
+    When the authenticated client requests that team's board
     Then the response contains exactly 5 columns
     And the columns are in workflow order: new, ready_for_implementation, in_progress, ready_for_acceptance, done
 

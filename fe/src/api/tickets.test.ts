@@ -5,6 +5,7 @@ import {
   deleteTicket,
   getTicket,
   listTickets,
+  patchTicketState,
   ticketStateLabel,
   ticketTypeLabel,
   updateTicket,
@@ -169,6 +170,28 @@ describe('tickets API', () => {
     expect(path).toBe(`${TICKETS_PATH}/k1`)
     expect(init.method).toBe('PUT')
     expect(JSON.parse(init.body as string)).not.toHaveProperty('epicId')
+  })
+
+  it('patchTicketState_shouldPatchStateOnlyToIdPath_whenSuccess', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ ...TICKET, state: 'in_progress' }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const result = await patchTicketState('k1', 'in_progress')
+
+    expect(result.state).toBe('in_progress')
+    const [path, init] = fetchMock.mock.calls[0] as [string, RequestInit]
+    expect(path).toBe(`${TICKETS_PATH}/k1`)
+    expect(init.method).toBe('PATCH')
+    expect(JSON.parse(init.body as string)).toEqual({ state: 'in_progress' })
+  })
+
+  it('patchTicketState_shouldThrowApiErrorWithStatus_whenRejected', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(problemResponse('Invalid state.', 400)))
+
+    const error = await patchTicketState('k1', 'nope').catch((e: unknown) => e)
+
+    expect(error).toBeInstanceOf(ApiError)
+    expect((error as ApiError).status).toBe(400)
   })
 
   it('deleteTicket_shouldDeleteIdPath_whenNoContent', async () => {

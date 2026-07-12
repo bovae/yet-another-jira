@@ -140,6 +140,24 @@ export async function updateTicket(id: string, input: TicketInput): Promise<Tick
 }
 
 /**
+ * Change only a ticket's workflow state (D5) — the board's drag-and-drop contract. The endpoint is
+ * idempotent, so re-issuing the same target state is safe.
+ *
+ * @throws ApiError on a non-success status (400 invalid state, 404 unknown ticket)
+ */
+export async function patchTicketState(id: string, state: string): Promise<TicketResponse> {
+  const res = await apiFetch(`${TICKETS_PATH}/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ state }),
+  })
+  if (!res.ok) {
+    throw await problemError(res)
+  }
+  return parseTicket(await res.json())
+}
+
+/**
  * Delete a ticket.
  *
  * @throws ApiError on a non-success status (404 unknown ticket)
