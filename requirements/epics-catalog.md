@@ -28,7 +28,7 @@ are in the [Epic Catalog](#3-epic-catalog-major-one-by-one).
 - [x] **E5** — Teams CRUD + delete guard
 - [x] **E11** — Frontend foundation (routing, auth context, design system)
 - [x] **E12** — FE auth screens
-- [ ] **E6** — Epics CRUD (team-scoped) + delete guard
+- [x] **E6** — Epics CRUD (team-scoped) + delete guard
 - [ ] **E13** — FE team + epic management screens
 - [ ] **E7** — Tickets CRUD + validation + `modified_at`
 - [ ] **E8** — Comments
