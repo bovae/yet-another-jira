@@ -17,11 +17,23 @@ public class SharedScenarioState {
     private ResponseEntity<String> lastResponse;
 
     @Nullable
+    private String accessToken;
+
+    @Nullable
     public ResponseEntity<String> getLastResponse() {
         return lastResponse;
     }
 
     public void setLastResponse(ResponseEntity<String> response) {
         this.lastResponse = response;
+    }
+
+    @Nullable
+    public String getAccessToken() {
+        return accessToken;
+    }
+
+    public void setAccessToken(String accessToken) {
+        this.accessToken = accessToken;
     }
 }

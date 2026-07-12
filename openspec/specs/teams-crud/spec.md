@@ -1,0 +1,80 @@
+# teams-crud
+
+## Purpose
+CRUD management of teams, the top-level grouping that epics and tickets belong to. All endpoints live under `/api/v1/teams`, require authentication, enforce case-insensitive unique names, and guard deletion against referencing epics or tickets.
+
+## Requirements
+
+### Requirement: List teams
+The system SHALL return all teams to any authenticated user via `GET /api/v1/teams`. No membership or ownership filtering applies — all verified users see all teams.
+
+#### Scenario: List returns all teams
+- **WHEN** an authenticated user requests `GET /api/v1/teams`
+- **THEN** the response is `200` with every team (id, name, created_at, modified_at), timestamps ISO-8601 UTC
+
+#### Scenario: Empty list on fresh database
+- **WHEN** no teams exist and an authenticated user requests `GET /api/v1/teams`
+- **THEN** the response is `200` with an empty array
+
+### Requirement: Create team
+The system SHALL create a team via `POST /api/v1/teams`. The name MUST be trimmed before validation and persistence, MUST be non-empty after trimming, and MUST be unique case-insensitively. `created_at`/`modified_at` are server-set UTC.
+
+#### Scenario: Successful create
+- **WHEN** an authenticated user posts `{"name": "  Platform  "}`
+- **THEN** the response is `201` with the team whose name is `"Platform"` (trimmed), a UUID id, and server-set timestamps
+
+#### Scenario: Blank name rejected
+- **WHEN** an authenticated user posts a name that is empty or whitespace-only
+- **THEN** the response is `400` with an RFC 9457 problem detail
+
+#### Scenario: Duplicate name rejected case-insensitively
+- **WHEN** a team named `"Platform"` exists and a user posts `{"name": "platform"}`
+- **THEN** the response is `409` with an RFC 9457 problem detail
+
+### Requirement: Get team
+The system SHALL return a single team via `GET /api/v1/teams/{id}`, or `404` when it does not exist.
+
+#### Scenario: Existing team
+- **WHEN** an authenticated user requests an existing team id
+- **THEN** the response is `200` with that team
+
+#### Scenario: Unknown team
+- **WHEN** an authenticated user requests a non-existent team id
+- **THEN** the response is `404` with an RFC 9457 problem detail
+
+### Requirement: Rename team
+The system SHALL rename a team via `PUT /api/v1/teams/{id}` applying the same name rules as create (trim, non-empty, case-insensitively unique). A successful rename MUST advance `modified_at` (server UTC). Renaming a team to its own current name SHALL succeed.
+
+#### Scenario: Successful rename
+- **WHEN** an authenticated user puts a valid new name to an existing team
+- **THEN** the response is `200` with the updated name and an advanced `modified_at`
+
+#### Scenario: Rename to name of another team rejected
+- **WHEN** the new name equals another team's name ignoring case
+- **THEN** the response is `409`
+
+#### Scenario: Rename unknown team
+- **WHEN** the team id does not exist
+- **THEN** the response is `404`
+
+### Requirement: Delete team with referential guard
+The system SHALL delete a team via `DELETE /api/v1/teams/{id}` only when it contains no epics and no tickets. If any epic or ticket references the team, the system MUST reject with `409 Conflict` and a clear message; cascading deletion is not allowed.
+
+#### Scenario: Clean delete
+- **WHEN** an authenticated user deletes a team with no epics and no tickets
+- **THEN** the response is `204` and the team no longer exists
+
+#### Scenario: Delete blocked by references
+- **WHEN** the team has at least one epic or at least one ticket
+- **THEN** the response is `409` with a problem detail naming the reason, and the team still exists
+
+#### Scenario: Delete unknown team
+- **WHEN** the team id does not exist
+- **THEN** the response is `404`
+
+### Requirement: Authentication required
+All team endpoints SHALL require a valid bearer token (enforced by the existing security configuration's authenticated-by-default rule for `/api/v1/**`).
+
+#### Scenario: Unauthenticated request rejected
+- **WHEN** any team endpoint is called without a valid token
+- **THEN** the response is `401` with an RFC 9457 problem detail

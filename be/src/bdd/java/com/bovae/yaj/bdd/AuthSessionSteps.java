@@ -83,6 +83,8 @@ public class AuthSessionSteps {
         int end = body.indexOf("\"", start);
         accessToken = body.substring(start, end);
         assertNotNull(accessToken, "Extracted access token should not be null");
+        // Publish to shared state so other step classes (e.g. team steps) can authenticate.
+        sharedState.setAccessToken(accessToken);
     }
 
     @When("the user requests current-user without an access token")
