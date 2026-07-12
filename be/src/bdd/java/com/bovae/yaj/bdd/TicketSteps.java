@@ -1,11 +1,9 @@
 package com.bovae.yaj.bdd;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.bovae.yaj.domain.model.Comment;
 import com.bovae.yaj.domain.model.Epic;
 import com.bovae.yaj.domain.model.Team;
 import com.bovae.yaj.domain.repository.CommentRepository;
@@ -109,11 +107,12 @@ public class TicketSteps {
     @Given("the ticket has a comment")
     public void theTicketHasAComment() {
         assertNotNull(ticketId, "Ticket id must be known before adding a comment");
-        Comment comment = new Comment();
-        comment.setTicketId(ticketId);
-        comment.setAuthorId(soleUserId());
-        comment.setBody("A comment that should cascade on delete");
-        commentRepository.saveAndFlush(comment);
+        ResponseEntity<String> response = exchange(
+                HttpMethod.POST,
+                TICKETS_URL + "/" + ticketId + "/comments",
+                Map.of("body", "A comment that should cascade on delete"),
+                true);
+        assertEquals(201, response.getStatusCode().value(), "Comment creation should succeed");
     }
 
     // --- actions ---
@@ -243,12 +242,6 @@ public class TicketSteps {
         Team team = new Team();
         team.setName(name);
         return teamRepository.saveAndFlush(team).getId();
-    }
-
-    private UUID soleUserId() {
-        var users = userRepository.findAll();
-        assertFalse(users.isEmpty(), "A registered user must exist to author the comment");
-        return users.get(0).getId();
     }
 
     private String ticketPath() {

@@ -31,7 +31,7 @@ are in the [Epic Catalog](#3-epic-catalog-major-one-by-one).
 - [x] **E6** — Epics CRUD (team-scoped) + delete guard
 - [x] **E13** — FE team + epic management screens
 - [x] **E7** — Tickets CRUD + validation + `modified_at`
-- [ ] **E8** — Comments
+- [x] **E8** — Comments
 - [ ] **E14** — FE ticket views + comments
 - [ ] **E9** — Board read (columns, ordering, filters, search)
 - [ ] **E15** — FE board + selector + filters + DnD
