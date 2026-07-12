@@ -26,7 +26,7 @@ are in the [Epic Catalog](#3-epic-catalog-major-one-by-one).
 - [x] **E3** — Login / logout (JWT + denylist)
 - [x] **E4** — AuthN/AuthZ enforcement + current-user
 - [x] **E5** — Teams CRUD + delete guard
-- [ ] **E11** — Frontend foundation (routing, auth context, design system)
+- [x] **E11** — Frontend foundation (routing, auth context, design system)
 - [ ] **E12** — FE auth screens
 - [ ] **E6** — Epics CRUD (team-scoped) + delete guard
 - [ ] **E13** — FE team + epic management screens

@@ -12,6 +12,8 @@
  * spacing.4xl(64px)=`p-16`. Use the numeric scale.
  */
 @import 'tailwindcss';
+/* Enter/exit keyframes for shadcn/ui primitives (Tailwind v4 replacement for tailwindcss-animate). */
+@import 'tw-animate-css';
 
 @theme {
   /* ── Fonts ─────────────────────────────────────────────────────────────── */
@@ -59,6 +61,31 @@
   --color-gradient-ship-end: #f9cb28;
   --color-selection-bg: #171717;
   --color-selection-fg: #f2f2f2;
+
+  /* ── shadcn/ui semantic bridge ─────────────────────────────────────────────
+   * Maps shadcn's semantic color variables onto the DESIGN.md tokens above so
+   * shadcn primitives (DropdownMenu, Dialog, …) render in the project palette
+   * instead of unstyled — the `--color-*: initial` reset otherwise leaves these
+   * classes with no value. `--color-primary` is already a DESIGN token (#171717)
+   * and doubles as shadcn's primary, so only its foreground is added here. */
+  --color-background: var(--color-canvas-soft);
+  --color-foreground: var(--color-ink);
+  --color-card: var(--color-canvas);
+  --color-card-foreground: var(--color-ink);
+  --color-popover: var(--color-canvas);
+  --color-popover-foreground: var(--color-ink);
+  --color-primary-foreground: var(--color-on-primary);
+  --color-secondary: var(--color-canvas-soft-2);
+  --color-secondary-foreground: var(--color-ink);
+  --color-muted: var(--color-canvas-soft-2);
+  --color-muted-foreground: var(--color-mute);
+  --color-accent: var(--color-canvas-soft-2);
+  --color-accent-foreground: var(--color-ink);
+  --color-destructive: var(--color-error);
+  --color-destructive-foreground: var(--color-on-primary);
+  --color-border: var(--color-hairline);
+  --color-input: var(--color-hairline);
+  --color-ring: var(--color-link);
 
   /* ── Radius (override stock scale to DESIGN.md; none/full stay built-in) ── */
   --radius-xs: 4px;
@@ -141,7 +168,18 @@
   --shadow-card: 0px 1px 1px #00000005, 0px 2px 2px #0000000a;
 }
 
+/* shadcn components reference a bare `--radius`; anchor it to the DESIGN md radius. */
+:root {
+  --radius: var(--radius-md);
+}
+
 @layer base {
+  /* Default border color for shadcn primitives that use a bare `border` utility;
+   * DESIGN.md components always name their border color, so they are unaffected. */
+  * {
+    border-color: var(--color-border);
+  }
+
   body {
     background-color: var(--color-canvas-soft);
     color: var(--color-ink);

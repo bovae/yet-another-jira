@@ -36,12 +36,33 @@ full set.
 
 ## shadcn/ui primitives
 
-shadcn/ui is the planned source of accessible primitives (Dialog, DropdownMenu,
-Select, …); it is introduced in **E11** and is not in the repo yet. When adding it,
-bridge its semantic tokens (`--background`, `--primary`, `--border`, `--ring`,
-`--radius`, …) onto the `DESIGN.md` tokens — the palette reset means un-bridged
-shadcn classes render unstyled. Full integration steps live in
-`requirements/epics-catalog.md` (E11). Expand this section when shadcn lands.
+shadcn/ui is the source of accessible primitives (DropdownMenu, and Dialog/Select/…
+as later epics consume them). It landed in **E11**. Config: `components.json` (new-york
+style, `neutral` base, `@/` alias), the `cn()` helper in `src/lib/utils.ts`, and the
+`@/*` path alias in `tsconfig.json` + `vite.config.ts`.
+
+**Semantic-token bridge (mandatory).** The stock palette reset (`--color-*: initial`)
+leaves shadcn's semantic classes with no value, so `src/index.css` bridges them onto
+`DESIGN.md` tokens:
+
+- The `@theme` block has a "shadcn/ui semantic bridge" section mapping `--color-background`,
+  `--color-foreground`, `--color-popover`, `--color-accent`, `--color-muted`,
+  `--color-destructive`, `--color-border`, `--color-ring`, … onto DESIGN tokens
+  (`--color-primary` is already a DESIGN token and doubles as shadcn's primary).
+- `:root { --radius }` anchors shadcn's bare `--radius` to the DESIGN md radius.
+- A `@layer base` rule sets the default `border-color` to `--color-border`, since shadcn
+  components use a bare `border` utility; DESIGN components always name their border color,
+  so they're unaffected.
+
+**Type & shadow scales are reset too.** shadcn's generated components use stock `text-sm`
+and `shadow-md`, which don't exist here. When adding a primitive, replace those with the
+DESIGN role tokens (`text-body-sm` / `text-body-sm-strong`, `shadow-card`) — see
+`src/components/ui/dropdown-menu.tsx` for the pattern.
+
+**Adding more primitives.** Run `shadcn add <name>` (YAGNI — only when a screen consumes
+it), then apply the type/shadow adaptation above. Enter/exit animation utilities
+(`animate-in`, `fade-in-0`, …) come from `tw-animate-css`, imported at the top of
+`index.css`.
 
 ## Pay special attention to
 

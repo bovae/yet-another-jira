@@ -56,9 +56,9 @@ describe('BoardPage', () => {
 
     render(<BoardPage />, { wrapper: Wrapper })
 
-    expect(screen.getByTestId('board-loading')).toBeInTheDocument()
+    expect(screen.getByRole('status')).toBeInTheDocument()
     expect(screen.queryByTestId('board')).not.toBeInTheDocument()
-    expect(screen.queryByTestId('board-error')).not.toBeInTheDocument()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 
   it('render_shouldShowFiveColumns_whenFetchSucceeds', async () => {
@@ -72,8 +72,8 @@ describe('BoardPage', () => {
 
     const columns = screen.getAllByTestId('board-column')
     expect(columns).toHaveLength(5)
-    expect(screen.queryByTestId('board-loading')).not.toBeInTheDocument()
-    expect(screen.queryByTestId('board-error')).not.toBeInTheDocument()
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 
   it('render_shouldShowErrorIndicator_whenFetchFails', async () => {
@@ -82,11 +82,11 @@ describe('BoardPage', () => {
     render(<BoardPage />, { wrapper: Wrapper })
 
     await waitFor(() => {
-      expect(screen.getByTestId('board-error')).toBeInTheDocument()
+      expect(screen.getByRole('alert')).toBeInTheDocument()
     })
 
     expect(screen.queryByTestId('board')).not.toBeInTheDocument()
-    expect(screen.queryByTestId('board-loading')).not.toBeInTheDocument()
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
   })
 
   it('render_shouldRecover_whenRetryClickedAfterFailure', async () => {
@@ -97,14 +97,14 @@ describe('BoardPage', () => {
     render(<BoardPage />, { wrapper: Wrapper })
 
     await waitFor(() => {
-      expect(screen.getByTestId('board-error')).toBeInTheDocument()
+      expect(screen.getByRole('alert')).toBeInTheDocument()
     })
 
-    fireEvent.click(screen.getByTestId('board-retry'))
+    fireEvent.click(screen.getByRole('button', { name: /try again/i }))
 
     await waitFor(() => {
       expect(screen.getByTestId('board')).toBeInTheDocument()
     })
-    expect(screen.queryByTestId('board-error')).not.toBeInTheDocument()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 })
