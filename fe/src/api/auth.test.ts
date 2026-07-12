@@ -1,11 +1,31 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { AUTH_LOGIN_PATH, AUTH_LOGOUT_PATH, AUTH_ME_PATH, fetchMe, login, logout } from './auth'
+import {
+  ApiError,
+  AUTH_LOGIN_PATH,
+  AUTH_LOGOUT_PATH,
+  AUTH_ME_PATH,
+  AUTH_RESEND_PATH,
+  AUTH_SIGNUP_PATH,
+  AUTH_VERIFY_PATH,
+  GENERIC_ERROR_MESSAGE,
+  fetchMe,
+  login,
+  logout,
+  resend,
+  signup,
+  verify,
+} from './auth'
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
     headers: { 'Content-Type': 'application/json' },
   })
+}
+
+/** RFC 9457 problem body — what the backend returns on auth failures. */
+function problemResponse(detail: string, status: number): Response {
+  return jsonResponse({ type: 'about:blank', title: 'Error', status, detail }, status)
 }
 
 describe('auth API', () => {
@@ -37,10 +57,17 @@ describe('auth API', () => {
     expect(JSON.parse(init.body as string)).toEqual({ email: 'a@b.com', password: 'pw' })
   })
 
-  it('login_shouldThrow_whenNonSuccessStatus', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 401 })))
+  it('login_shouldThrowApiErrorWithDetailAndStatus_whenNonSuccessStatus', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(problemResponse('Invalid email or password.', 401)),
+    )
 
-    await expect(login({ email: 'a@b.com', password: 'bad' })).rejects.toThrow('login failed: 401')
+    const error = await login({ email: 'a@b.com', password: 'bad' }).catch((e: unknown) => e)
+
+    expect(error).toBeInstanceOf(ApiError)
+    expect((error as ApiError).status).toBe(401)
+    expect((error as ApiError).message).toBe('Invalid email or password.')
   })
 
   it('login_shouldThrow_whenPayloadMalformed', async () => {
@@ -49,6 +76,113 @@ describe('auth API', () => {
     await expect(login({ email: 'a@b.com', password: 'pw' })).rejects.toThrow(
       'login response is missing required fields',
     )
+  })
+
+  // --- ApiError problem-detail parsing ---
+
+  it('problemError_shouldCarryDetail_whenBodyIsProblemJson', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(problemResponse('Email already registered.', 409)),
+    )
+
+    const error = await signup({ email: 'a@b.com', password: 'password1' }).catch((e: unknown) => e)
+
+    expect(error).toBeInstanceOf(ApiError)
+    expect((error as ApiError).status).toBe(409)
+    expect((error as ApiError).message).toBe('Email already registered.')
+  })
+
+  it('problemError_shouldFallBackToGenericMessage_whenBodyUnparseable', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('not json', { status: 500 })))
+
+    const error = await signup({ email: 'a@b.com', password: 'password1' }).catch((e: unknown) => e)
+
+    expect(error).toBeInstanceOf(ApiError)
+    expect((error as ApiError).status).toBe(500)
+    expect((error as ApiError).message).toBe(GENERIC_ERROR_MESSAGE)
+  })
+
+  // --- signup ---
+
+  it('signup_shouldPostCredentialsAndReturnTypedResponse_whenSuccess', async () => {
+    const body = {
+      id: 'u1',
+      email: 'a@b.com',
+      emailVerified: false,
+      createdAt: '2026-07-12T00:00:00Z',
+    }
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(body, 201))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const result = await signup({ email: 'a@b.com', password: 'password1' })
+
+    expect(result).toEqual(body)
+    const [path, init] = fetchMock.mock.calls[0] as [string, RequestInit]
+    expect(path).toBe(AUTH_SIGNUP_PATH)
+    expect(init.method).toBe('POST')
+    expect(JSON.parse(init.body as string)).toEqual({ email: 'a@b.com', password: 'password1' })
+  })
+
+  // --- verify ---
+
+  it('verify_shouldPostTokenAndReturnTypedResponse_whenSuccess', async () => {
+    const body = {
+      verified: true,
+      message: 'Your email is verified. Please log in.',
+      next: 'login',
+    }
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(body))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const result = await verify('tok-123')
+
+    expect(result).toEqual(body)
+    const [path, init] = fetchMock.mock.calls[0] as [string, RequestInit]
+    expect(path).toBe(AUTH_VERIFY_PATH)
+    expect(init.method).toBe('POST')
+    expect(JSON.parse(init.body as string)).toEqual({ token: 'tok-123' })
+  })
+
+  it('verify_shouldThrowApiErrorWithStatus_whenGone', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(problemResponse('This link has expired.', 410)),
+    )
+
+    const error = await verify('stale').catch((e: unknown) => e)
+
+    expect(error).toBeInstanceOf(ApiError)
+    expect((error as ApiError).status).toBe(410)
+    expect((error as ApiError).message).toBe('This link has expired.')
+  })
+
+  // --- resend ---
+
+  it('resend_shouldPostEmailAndReturnMessage_whenAccepted', async () => {
+    const body = { message: 'If an unverified account exists, a new email has been sent.' }
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(body, 202))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const result = await resend('a@b.com')
+
+    expect(result).toEqual(body)
+    const [path, init] = fetchMock.mock.calls[0] as [string, RequestInit]
+    expect(path).toBe(AUTH_RESEND_PATH)
+    expect(init.method).toBe('POST')
+    expect(JSON.parse(init.body as string)).toEqual({ email: 'a@b.com' })
+  })
+
+  it('resend_shouldThrowApiErrorWithStatus_whenRateLimited', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(problemResponse('Too many requests. Try again later.', 429)),
+    )
+
+    const error = await resend('a@b.com').catch((e: unknown) => e)
+
+    expect(error).toBeInstanceOf(ApiError)
+    expect((error as ApiError).status).toBe(429)
   })
 
   // --- me ---

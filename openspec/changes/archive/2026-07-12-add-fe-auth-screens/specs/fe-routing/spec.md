@@ -1,9 +1,4 @@
-# fe-routing
-
-## Purpose
-Frontend client-side routing: the route table covering all minimum screens (with placeholders for later-epic screens) and authentication guards on business routes.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Route table covers all minimum screens
 The frontend SHALL define a client-side route for every minimum screen (§10): `/login`, `/signup`, `/verify`, `/verify-error`, `/` (Kanban board), `/teams`, `/epics`, and `/tickets/:id`. The public auth routes (`/login`, `/signup`, `/verify`, `/verify-error`) SHALL render the real auth screens. Routes whose screens belong to later epics SHALL render a placeholder.
