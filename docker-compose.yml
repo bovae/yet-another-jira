@@ -74,10 +74,8 @@ services:
     networks:
       - frontend
 
-  # Dev/test SMTP sink — opt-in. Start with: docker compose --profile mail up
   mailpit:
     image: axllent/mailpit:latest
-    profiles: ['mail']
     ports:
       - '8025:8025'
       - '1025:1025'
