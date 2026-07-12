@@ -10,6 +10,7 @@ import {
 } from '@/api/epics'
 import { GENERIC_ERROR_MESSAGE } from '@/api/problem'
 import { listTeams, type TeamResponse } from '@/api/teams'
+import { listTickets } from '@/api/tickets'
 import { EmptyState } from '@/components/state/EmptyState'
 import { ErrorState } from '@/components/state/ErrorState'
 import { LoadingState } from '@/components/state/LoadingState'
@@ -45,6 +46,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { formatTimestamp } from '@/lib/utils'
 
 const ALL_TEAMS = 'all'
+const REFERENCED_MESSAGE = 'This epic is referenced by tickets and cannot be deleted.'
 
 /**
  * Epic management screen (D2, D6): lists epics from `GET /api/v1/epics`, narrowed by a team filter
@@ -65,6 +67,12 @@ export function EpicsPage() {
   const epicsQuery = useQuery({
     queryKey: ['epics', teamFilter ?? ALL_TEAMS],
     queryFn: ({ signal }) => listEpics(teamFilter, { signal }),
+  })
+  // Reference data for the disabled-delete UX (D9): an epic with any referencing ticket can't be
+  // deleted. A failure here is non-fatal — the delete stays enabled and the backend 409 guards it.
+  const ticketsQuery = useQuery({
+    queryKey: ['tickets', ALL_TEAMS],
+    queryFn: ({ signal }) => listTickets(undefined, { signal }),
   })
 
   if (teamsQuery.isPending || epicsQuery.isPending) {
@@ -87,6 +95,9 @@ export function EpicsPage() {
   const teams = teamsQuery.data
   const epics = epicsQuery.data
   const teamNamesById = new Map(teams.map((team) => [team.id, team.name]))
+  const referencedEpicIds = new Set(
+    (ticketsQuery.data ?? []).map((ticket) => ticket.epicId).filter(Boolean),
+  )
 
   return (
     <section className="flex flex-col gap-6">
@@ -122,6 +133,7 @@ export function EpicsPage() {
               key={epic.id}
               epic={epic}
               teamName={teamNamesById.get(epic.teamId) ?? 'Unknown team'}
+              referenced={referencedEpicIds.has(epic.id)}
               onEdit={() => setEditTarget(epic)}
               onDelete={() => setDeleteTarget(epic)}
             />
@@ -149,11 +161,13 @@ export function EpicsPage() {
 function EpicRow({
   epic,
   teamName,
+  referenced,
   onEdit,
   onDelete,
 }: {
   epic: EpicResponse
   teamName: string
+  referenced: boolean
   onEdit: () => void
   onDelete: () => void
 }) {
@@ -170,7 +184,16 @@ function EpicRow({
         <Button variant="outline" size="sm" onClick={onEdit} aria-label={`Edit ${epic.title}`}>
           Edit
         </Button>
-        <Button variant="outline" size="sm" onClick={onDelete} aria-label={`Delete ${epic.title}`}>
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={referenced}
+          title={referenced ? REFERENCED_MESSAGE : undefined}
+          aria-label={
+            referenced ? `Delete ${epic.title} — ${REFERENCED_MESSAGE}` : `Delete ${epic.title}`
+          }
+          onClick={onDelete}
+        >
           Delete
         </Button>
       </div>

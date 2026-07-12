@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi, type Mock } from 'vitest'
 import App from './App'
 import { AuthContext, type AuthContextValue } from '@/auth/auth-context'
 
@@ -15,6 +15,19 @@ vi.mock('@/api/epics', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/api/epics')>()),
   listEpics: vi.fn().mockResolvedValue([]),
 }))
+vi.mock('@/api/tickets', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/api/tickets')>()),
+  listTickets: vi.fn().mockResolvedValue([]),
+  getTicket: vi.fn(),
+}))
+vi.mock('@/api/comments', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/api/comments')>()),
+  listComments: vi.fn().mockResolvedValue([]),
+}))
+
+import { getTicket } from '@/api/tickets'
+
+const getTicketMock = getTicket as Mock
 
 const UNAUTHENTICATED: AuthContextValue = {
   status: 'unauthenticated',
@@ -81,8 +94,8 @@ describe('App public auth routes', () => {
 })
 
 /**
- * Business routes for an authenticated visitor: `/teams` and `/epics` render the real management
- * screens (E13), while `/tickets/:id` is still a later-epic placeholder.
+ * Business routes for an authenticated visitor: `/teams`, `/epics`, `/tickets`, and `/tickets/:id` all
+ * render their real screens (E13–E14), none a later-epic placeholder.
  */
 describe('App authenticated business routes', () => {
   it('route_shouldRenderTeamsScreen_whenTeams', async () => {
@@ -99,10 +112,28 @@ describe('App authenticated business routes', () => {
     expect(screen.queryByText(/coming in a later milestone/i)).not.toBeInTheDocument()
   })
 
-  it('route_shouldRenderPlaceholder_whenTicket', () => {
-    renderAppAt('/tickets/123', AUTHENTICATED)
+  it('route_shouldRenderTicketsListScreen_whenTickets', async () => {
+    renderAppAt('/tickets', AUTHENTICATED)
 
-    expect(screen.getByRole('heading', { name: /ticket/i })).toBeInTheDocument()
-    expect(screen.getByText(/coming in a later milestone/i)).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: /new ticket/i })).toBeInTheDocument()
+    expect(screen.queryByText(/coming in a later milestone/i)).not.toBeInTheDocument()
+  })
+
+  it('route_shouldRenderTicketDetailsScreen_whenTicketId', async () => {
+    getTicketMock.mockResolvedValue({
+      id: 'k1',
+      teamId: 'a',
+      type: 'bug',
+      state: 'new',
+      title: 'Login broken',
+      body: 'body',
+      createdBy: 'u1',
+      createdAt: '2026-07-12T00:00:00Z',
+      modifiedAt: '2026-07-12T00:00:00Z',
+    })
+    renderAppAt('/tickets/k1', AUTHENTICATED)
+
+    expect(await screen.findByRole('heading', { name: 'Login broken' })).toBeInTheDocument()
+    expect(screen.queryByText(/coming in a later milestone/i)).not.toBeInTheDocument()
   })
 })

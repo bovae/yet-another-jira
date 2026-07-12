@@ -16,15 +16,21 @@ vi.mock('@/api/teams', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/api/teams')>()),
   listTeams: vi.fn(),
 }))
+vi.mock('@/api/tickets', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/api/tickets')>()),
+  listTickets: vi.fn(),
+}))
 
 import { createEpic, deleteEpic, listEpics, updateEpic } from '@/api/epics'
 import { listTeams } from '@/api/teams'
+import { listTickets } from '@/api/tickets'
 
 const listEpicsMock = listEpics as Mock
 const createEpicMock = createEpic as Mock
 const updateEpicMock = updateEpic as Mock
 const deleteEpicMock = deleteEpic as Mock
 const listTeamsMock = listTeams as Mock
+const listTicketsMock = listTickets as Mock
 
 function team(id: string, name: string) {
   return { id, name, createdAt: '2026-07-12T00:00:00Z', modifiedAt: '2026-07-12T00:00:00Z' }
@@ -36,6 +42,21 @@ function epic(id: string, teamId: string, title: string, description?: string) {
     teamId,
     title,
     description,
+    createdAt: '2026-07-12T00:00:00Z',
+    modifiedAt: '2026-07-12T00:00:00Z',
+  }
+}
+
+function ticket(epicId: string) {
+  return {
+    id: `k-${epicId}`,
+    teamId: 'a',
+    epicId,
+    type: 'bug',
+    state: 'new',
+    title: 'Ticket',
+    body: 'body',
+    createdBy: 'u1',
     createdAt: '2026-07-12T00:00:00Z',
     modifiedAt: '2026-07-12T00:00:00Z',
   }
@@ -54,6 +75,7 @@ describe('EpicsPage', () => {
   beforeEach(() => {
     listTeamsMock.mockResolvedValue([team('a', 'Alpha'), team('b', 'Beta')])
     listEpicsMock.mockResolvedValue([])
+    listTicketsMock.mockResolvedValue([])
   })
 
   afterEach(() => {
@@ -125,6 +147,25 @@ describe('EpicsPage', () => {
 
     expect(screen.getByText(/create a team first/i)).toBeInTheDocument()
     expect(screen.queryByRole('textbox', { name: 'Title' })).not.toBeInTheDocument()
+  })
+
+  it('delete_shouldBeDisabled_whenTicketReferencesEpic', async () => {
+    listEpicsMock.mockResolvedValue([epic('e1', 'a', 'Login'), epic('e2', 'a', 'Signup')])
+    listTicketsMock.mockResolvedValue([ticket('e1')])
+    renderPage()
+
+    expect(await screen.findByText('Login')).toBeInTheDocument()
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /delete login/i })).toBeDisabled(),
+    )
+    expect(screen.getByRole('button', { name: /^delete signup$/i })).toBeEnabled()
+  })
+
+  it('delete_shouldBeEnabled_whenNoTicketReferencesEpic', async () => {
+    listEpicsMock.mockResolvedValue([epic('e1', 'a', 'Login')])
+    renderPage()
+
+    expect(await screen.findByRole('button', { name: /delete login/i })).toBeEnabled()
   })
 
   it('delete_shouldRenderDetailAndKeepEpic_whenConflict', async () => {

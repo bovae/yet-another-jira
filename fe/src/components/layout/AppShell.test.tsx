@@ -28,6 +28,17 @@ function renderShell(value: AuthContextValue) {
   )
 }
 
+describe('AppShell nav', () => {
+  it('nav_shouldRenderAllPrimaryLinks_includingTickets', () => {
+    renderShell(authenticated(() => Promise.resolve()))
+
+    expect(screen.getByRole('link', { name: 'Board' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Teams' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Epics' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Tickets' })).toHaveAttribute('href', '/tickets')
+  })
+})
+
 describe('AppShell user menu', () => {
   it('userMenu_shouldRevealEmailAndLogout_whenOpened', async () => {
     renderShell(authenticated(() => Promise.resolve()))

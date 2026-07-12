@@ -1,7 +1,7 @@
 # fe-team-management
 
 ## Purpose
-Frontend team management screen: list teams, create, rename, and delete teams. The screen talks to the backend teams API, surfaces RFC 9457 problem details in dialogs, and disables deletion for teams that are still referenced by epics.
+Frontend team management screen: list teams, create, rename, and delete teams. The screen talks to the backend teams API, surfaces RFC 9457 problem details in dialogs, and disables deletion for teams that are still referenced by epics or tickets.
 
 ## Requirements
 
@@ -47,14 +47,18 @@ The frontend SHALL provide a rename action per team opening a dialog pre-filled 
 - **THEN** the dialog stays open showing the problem `detail`
 
 ### Requirement: Delete team with confirmation and reference-aware disable
-The frontend SHALL provide a delete action per team behind a confirmation dialog calling `DELETE /api/v1/teams/{id}`. The delete control SHALL be disabled, with a clear message that the team is referenced, when the team has epics (computed from `GET /api/v1/epics` grouped by `teamId`). When enabled and confirmed, a `204` removes the team from the list; a `409` (reference created concurrently) SHALL render the backend problem `detail` without removing the team.
+The frontend SHALL provide a delete action per team behind a confirmation dialog calling `DELETE /api/v1/teams/{id}`. The delete control SHALL be disabled, with a clear message that the team is referenced, when the team has epics (computed from `GET /api/v1/epics` grouped by `teamId`) or tickets (computed from `GET /api/v1/tickets` grouped by `teamId`). When enabled and confirmed, a `204` removes the team from the list; a `409` (reference created concurrently) SHALL render the backend problem `detail` without removing the team.
 
-#### Scenario: Delete disabled for referenced team
+#### Scenario: Delete disabled for team with epics
 - **WHEN** the epics list contains at least one epic whose `teamId` is the team's id
 - **THEN** the team's delete control is disabled and a clear referenced-team message is available
 
+#### Scenario: Delete disabled for team with tickets
+- **WHEN** the tickets list contains at least one ticket whose `teamId` is the team's id
+- **THEN** the team's delete control is disabled and a clear referenced-team message is available
+
 #### Scenario: Delete enabled for unreferenced team
-- **WHEN** no epic references the team
+- **WHEN** no epic and no ticket references the team
 - **THEN** the delete control is enabled
 
 #### Scenario: Confirmed delete removes team
