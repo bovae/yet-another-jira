@@ -31,7 +31,7 @@
 
     <build-helper-maven-plugin.version>3.6.1</build-helper-maven-plugin.version>
     <jacoco-maven-plugin.version>0.8.13</jacoco-maven-plugin.version>
-    <spotless-maven-plugin.version>3.5.1</spotless-maven-plugin.version>
+    <spotless-maven-plugin.version>3.8.0</spotless-maven-plugin.version>
     <palantir-java-format.version>2.71.0</palantir-java-format.version>
   </properties>
 
