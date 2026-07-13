@@ -21,7 +21,7 @@ public class ValkeyStartupValidator implements InitializingBean {
             LOG.info("Valkey connectivity verified at startup.");
         } catch (RuntimeException ex) {
             throw new IllegalStateException(
-                    "Valkey is unreachable at startup within " + ValkeyConfig.STARTUP_TIMEOUT.toSeconds()
+                    "Valkey is unreachable at startup within " + ValkeyConfig.CONNECT_TIMEOUT.toSeconds()
                             + "s; verify the 'yaj.valkey.host'/'yaj.valkey.port' configuration and that Valkey is running.",
                     ex);
         }

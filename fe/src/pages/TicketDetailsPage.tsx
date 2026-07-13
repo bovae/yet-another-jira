@@ -5,7 +5,6 @@ import { listEpics } from '@/api/epics'
 import { GENERIC_ERROR_MESSAGE } from '@/api/problem'
 import { listTeams } from '@/api/teams'
 import { ApiError, deleteTicket, getTicket, ticketStateLabel, ticketTypeLabel } from '@/api/tickets'
-import { useAuth } from '@/auth/auth-context'
 import { CommentThread } from '@/components/tickets/CommentThread'
 import { TicketFormDialog } from '@/components/tickets/TicketFormDialog'
 import { ErrorState } from '@/components/state/ErrorState'
@@ -26,12 +25,11 @@ import { formatTimestamp } from '@/lib/utils'
 /**
  * Ticket details view (D5): shows every ticket field plus metadata, the comment thread, and edit/delete
  * actions. Runs the `ticket(id)` query alongside teams/epics reference queries (for team name and epic
- * title). A `404` renders a not-found panel rather than crashing. Created-by shows the current user's
- * email when the id matches, otherwise the raw id in mono (D6).
+ * title). A `404` renders a not-found panel rather than crashing. Created-by shows the server-resolved
+ * `createdByEmail`, falling back to the raw id in mono if unresolved (D3).
  */
 export function TicketDetailsPage() {
   const { id } = useParams()
-  const { user } = useAuth()
   const navigate = useNavigate()
   const [editOpen, setEditOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
@@ -76,15 +74,20 @@ export function TicketDetailsPage() {
   const ticket = ticketQuery.data
   const teams = teamsQuery.data ?? []
   const teamName = teams.find((team) => team.id === ticket.teamId)?.name ?? 'Unknown team'
-  const epicTitle = ticket.epicId
-    ? ((epicsQuery.data ?? []).find((epic) => epic.id === ticket.epicId)?.title ?? 'Unknown epic')
-    : 'None'
-  const createdBy =
-    user && user.id === ticket.createdBy ? (
-      user.email
-    ) : (
-      <span className="font-mono text-caption-mono">{ticket.createdBy}</span>
-    )
+  // "Unknown epic" only once epics have resolved without a match — while they load, show a neutral
+  // placeholder rather than briefly claiming a real epic is unknown (D24).
+  let epicTitle: string
+  if (!ticket.epicId) {
+    epicTitle = 'None'
+  } else if (epicsQuery.isPending) {
+    epicTitle = '…'
+  } else {
+    epicTitle =
+      (epicsQuery.data ?? []).find((epic) => epic.id === ticket.epicId)?.title ?? 'Unknown epic'
+  }
+  const createdBy = ticket.createdByEmail ?? (
+    <span className="font-mono text-caption-mono">{ticket.createdBy}</span>
+  )
 
   return (
     <section className="flex flex-col gap-8">
@@ -114,7 +117,7 @@ export function TicketDetailsPage() {
         </dl>
       </div>
 
-      <CommentThread ticketId={ticket.id} me={user} />
+      <CommentThread ticketId={ticket.id} />
 
       {editOpen ? (
         <TicketFormDialog teams={teams} ticket={ticket} onOpenChange={setEditOpen} />
@@ -173,7 +176,11 @@ function DeleteTicketDialog({
   const mutation = useMutation({
     mutationFn: () => deleteTicket(ticketId),
     onSuccess: () => {
+      // The ticket is gone: refresh every list and board that might have shown it, and drop its now-404
+      // detail cache so a back-navigation refetches instead of rendering a stale 200 (D20).
       void queryClient.invalidateQueries({ queryKey: ['tickets'] })
+      void queryClient.invalidateQueries({ queryKey: ['board'] })
+      queryClient.removeQueries({ queryKey: ['ticket', ticketId] })
       onDeleted()
     },
     onError: (error: unknown) => {

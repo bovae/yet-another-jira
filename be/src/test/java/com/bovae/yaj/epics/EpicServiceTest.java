@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -33,6 +34,7 @@ import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Sort;
 
 @ExtendWith(MockitoExtension.class)
 class EpicServiceTest {
@@ -117,6 +119,15 @@ class EpicServiceTest {
 
         assertThrows(ValidationException.class, () -> epicService.create(TEAM_ID, "Payments", "d".repeat(10001)));
         verify(epicRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void create_shouldTranslateToNotFound_whenTeamVanishesBeforeFlush() {
+        // team exists at the pre-check, then the FK-violating insert flush reports the parent is gone.
+        when(teamRepository.existsById(TEAM_ID)).thenReturn(true);
+        when(epicRepository.saveAndFlush(any(Epic.class))).thenThrow(new DataIntegrityViolationException("fk_team"));
+
+        assertThrows(NotFoundException.class, () -> epicService.create(TEAM_ID, "Payments", null));
     }
 
     // --- get ---
@@ -207,23 +218,23 @@ class EpicServiceTest {
 
     @Test
     void list_shouldFilterByTeam_whenTeamIdPresent() {
-        when(epicRepository.findByTeamId(TEAM_ID)).thenReturn(List.of(existingEpic()));
+        when(epicRepository.findByTeamId(eq(TEAM_ID), any(Sort.class))).thenReturn(List.of(existingEpic()));
 
         List<EpicResponse> result = epicService.list(TEAM_ID);
 
         assertEquals(1, result.size());
         assertEquals(TEAM_ID, result.get(0).teamId());
-        verify(epicRepository, never()).findAll();
+        verify(epicRepository, never()).findAll(any(Sort.class));
     }
 
     @Test
     void list_shouldReturnAll_whenTeamIdAbsent() {
-        when(epicRepository.findAll()).thenReturn(List.of(existingEpic()));
+        when(epicRepository.findAll(any(Sort.class))).thenReturn(List.of(existingEpic()));
 
         List<EpicResponse> result = epicService.list(null);
 
         assertEquals(1, result.size());
-        verify(epicRepository, never()).findByTeamId(any());
+        verify(epicRepository, never()).findByTeamId(any(), any());
     }
 
     // --- helpers ---

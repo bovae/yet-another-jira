@@ -4,7 +4,6 @@ import static com.bovae.yaj.config.AsyncConfig.VERIFICATION_EMAIL_EXECUTOR;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.mail.MailException;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
@@ -22,8 +21,14 @@ public class VerificationEmailDispatcher {
     public void onVerificationEmailRequested(VerificationEmailRequestedEvent event) {
         try {
             verificationEmailSender.send(event.recipientEmail(), event.rawToken());
-        } catch (MailException ex) {
-            LOG.warn("Verification email dispatch failed for a recipient; user can recover via resend", ex);
+        } catch (RuntimeException ex) {
+            // Runs after commit on the async executor, so an exception here has nowhere to propagate.
+            // Catch broadly (a non-MailException — DNS, socket, config — must not crash the executor)
+            // and log the type + message only: never the recipient, since this fires per user.
+            LOG.warn(
+                    "Verification email dispatch failed ({}): {}; user can recover via resend",
+                    ex.getClass().getSimpleName(),
+                    ex.getMessage());
         }
     }
 }

@@ -47,6 +47,29 @@ describe('LoginPage', () => {
     vi.resetAllMocks()
   })
 
+  it('render_shouldRedirectToRoot_whenAlreadyAuthenticated', async () => {
+    render(
+      <AuthContext
+        value={{
+          status: 'authenticated',
+          user: { id: 'u1', email: 'me@example.com' },
+          login: () => Promise.resolve(),
+          logout: () => Promise.resolve(),
+        }}
+      >
+        <MemoryRouter initialEntries={['/login']}>
+          <Routes>
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/" element={<div data-testid="home">home</div>} />
+          </Routes>
+        </MemoryRouter>
+      </AuthContext>,
+    )
+
+    expect(await screen.findByTestId('home')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^log in$/i })).not.toBeInTheDocument()
+  })
+
   it('submit_shouldRedirectToPreservedLocation_whenSuccess', async () => {
     const login = vi.fn(() => Promise.resolve())
     const user = userEvent.setup()

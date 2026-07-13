@@ -85,6 +85,23 @@ class LoginServiceTest {
         assertEquals("Bearer", response.tokenType());
         assertEquals(EXPIRES_IN_SECONDS, response.expiresInSeconds());
         verify(jwtService, times(1)).issue(USER_ID);
+        // Correct credentials clear the rate-limit window so a valid user isn't blocked by earlier typos.
+        verify(loginRateLimiter).reset("user@example.com");
+    }
+
+    @Test
+    void login_shouldResetRateLimit_whenCredentialsCorrectButUnverified() {
+        // "Successful authentication" (correct password) clears the window even if login then 403s on
+        // the unverified-email check — the caller is legitimate.
+        User user = buildUnverifiedActiveUser();
+        when(userRepository.findByEmail("unverified@example.com")).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("correctPass", STORED_HASH)).thenReturn(true);
+
+        assertThrows(
+                ForbiddenException.class,
+                () -> loginService.login(new LoginRequest("unverified@example.com", "correctPass")));
+
+        verify(loginRateLimiter).reset("unverified@example.com");
     }
 
     // --- 403: unverified account ---

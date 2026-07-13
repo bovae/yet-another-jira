@@ -3,6 +3,7 @@ package com.bovae.yaj.config;
 import com.bovae.yaj.auth.jwt.BearerTokenExtractor;
 import com.bovae.yaj.auth.jwt.JwtAuthenticationFilter;
 import com.bovae.yaj.auth.jwt.JwtService;
+import com.bovae.yaj.domain.repository.UserRepository;
 import com.bovae.yaj.web.error.ProblemAuthenticationEntryPoint;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -28,6 +29,7 @@ public class SecurityConfig {
 
     private final BearerTokenExtractor bearerTokenExtractor;
     private final JwtService jwtService;
+    private final UserRepository userRepository;
     private final ProblemAuthenticationEntryPoint authenticationEntryPoint;
     private final ObjectMapper objectMapper;
 
@@ -47,7 +49,7 @@ public class SecurityConfig {
                         .authenticated())
                 .exceptionHandling(e -> e.authenticationEntryPoint(authenticationEntryPoint))
                 .addFilterBefore(
-                        new JwtAuthenticationFilter(bearerTokenExtractor, jwtService, objectMapper),
+                        new JwtAuthenticationFilter(bearerTokenExtractor, jwtService, userRepository, objectMapper),
                         UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }

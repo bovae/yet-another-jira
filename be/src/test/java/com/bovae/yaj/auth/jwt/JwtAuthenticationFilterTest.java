@@ -10,11 +10,14 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import com.bovae.yaj.domain.model.User;
+import com.bovae.yaj.domain.repository.UserRepository;
 import com.bovae.yaj.error.UnauthorizedException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.FilterChain;
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.AfterEach;
@@ -45,6 +48,9 @@ class JwtAuthenticationFilterTest {
     private JwtService jwtService;
 
     @Mock
+    private UserRepository userRepository;
+
+    @Mock
     private FilterChain chain;
 
     @AfterEach
@@ -62,12 +68,14 @@ class JwtAuthenticationFilterTest {
 
         when(bearerTokenExtractor.extract(header)).thenReturn(rawToken);
         when(jwtService.validateAccessToken(rawToken)).thenReturn(claims);
+        when(userRepository.findById(subject)).thenReturn(Optional.of(activeUser(subject)));
 
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.addHeader("Authorization", header);
         MockHttpServletResponse response = new MockHttpServletResponse();
 
-        JwtAuthenticationFilter filter = new JwtAuthenticationFilter(bearerTokenExtractor, jwtService, OBJECT_MAPPER);
+        JwtAuthenticationFilter filter =
+                new JwtAuthenticationFilter(bearerTokenExtractor, jwtService, userRepository, OBJECT_MAPPER);
         filter.doFilterInternal(request, response, chain);
 
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
@@ -87,7 +95,8 @@ class JwtAuthenticationFilterTest {
         request.addHeader("Authorization", "Bearer some.token");
         MockHttpServletResponse response = new MockHttpServletResponse();
 
-        JwtAuthenticationFilter filter = new JwtAuthenticationFilter(bearerTokenExtractor, jwtService, OBJECT_MAPPER);
+        JwtAuthenticationFilter filter =
+                new JwtAuthenticationFilter(bearerTokenExtractor, jwtService, userRepository, OBJECT_MAPPER);
         filter.doFilterInternal(request, response, chain);
 
         assertSame(existingAuth, SecurityContextHolder.getContext().getAuthentication());
@@ -114,7 +123,8 @@ class JwtAuthenticationFilterTest {
             when(jwtService.validateAccessToken("some.token")).thenThrow(new UnauthorizedException("expired"));
         }
 
-        JwtAuthenticationFilter filter = new JwtAuthenticationFilter(bearerTokenExtractor, jwtService, OBJECT_MAPPER);
+        JwtAuthenticationFilter filter =
+                new JwtAuthenticationFilter(bearerTokenExtractor, jwtService, userRepository, OBJECT_MAPPER);
         filter.doFilterInternal(request, response, chain);
 
         assertNull(SecurityContextHolder.getContext().getAuthentication());
@@ -132,7 +142,8 @@ class JwtAuthenticationFilterTest {
         request.addHeader("Authorization", header);
         MockHttpServletResponse response = new MockHttpServletResponse();
 
-        JwtAuthenticationFilter filter = new JwtAuthenticationFilter(bearerTokenExtractor, jwtService, OBJECT_MAPPER);
+        JwtAuthenticationFilter filter =
+                new JwtAuthenticationFilter(bearerTokenExtractor, jwtService, userRepository, OBJECT_MAPPER);
         filter.doFilterInternal(request, response, chain);
 
         assertEquals(503, response.getStatus());
@@ -145,6 +156,84 @@ class JwtAuthenticationFilterTest {
         String body = response.getContentAsString();
         assertFalse(body.contains("valkey"), "body must not leak infrastructure detail");
         assertFalse(body.toLowerCase().contains("exception"), "body must not leak stack trace");
+    }
+
+    @Test
+    void doFilterInternal_shouldNotSetAuthentication_whenUserSoftDeleted() throws Exception {
+        UUID subject = UUID.randomUUID();
+        String header = "Bearer valid.token";
+        TokenClaims claims =
+                new TokenClaims(subject, "jti-1", Instant.now(), Instant.now().plusSeconds(3600));
+        when(bearerTokenExtractor.extract(header)).thenReturn("valid.token");
+        when(jwtService.validateAccessToken("valid.token")).thenReturn(claims);
+        User deleted = activeUser(subject);
+        deleted.setDeletedAt(Instant.now());
+        when(userRepository.findById(subject)).thenReturn(Optional.of(deleted));
+
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.addHeader("Authorization", header);
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        JwtAuthenticationFilter filter =
+                new JwtAuthenticationFilter(bearerTokenExtractor, jwtService, userRepository, OBJECT_MAPPER);
+        filter.doFilterInternal(request, response, chain);
+
+        assertNull(SecurityContextHolder.getContext().getAuthentication(), "soft-deleted user must not authenticate");
+        verify(chain).doFilter(request, response);
+    }
+
+    @Test
+    void doFilterInternal_shouldNotSetAuthentication_whenUserMissing() throws Exception {
+        UUID subject = UUID.randomUUID();
+        String header = "Bearer valid.token";
+        TokenClaims claims =
+                new TokenClaims(subject, "jti-1", Instant.now(), Instant.now().plusSeconds(3600));
+        when(bearerTokenExtractor.extract(header)).thenReturn("valid.token");
+        when(jwtService.validateAccessToken("valid.token")).thenReturn(claims);
+        when(userRepository.findById(subject)).thenReturn(Optional.empty());
+
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.addHeader("Authorization", header);
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        JwtAuthenticationFilter filter =
+                new JwtAuthenticationFilter(bearerTokenExtractor, jwtService, userRepository, OBJECT_MAPPER);
+        filter.doFilterInternal(request, response, chain);
+
+        assertNull(SecurityContextHolder.getContext().getAuthentication(), "missing user must not authenticate");
+        verify(chain).doFilter(request, response);
+    }
+
+    @Test
+    void doFilterInternal_shouldFailClosedWith503_whenUserLookupStoreUnreachable() throws Exception {
+        UUID subject = UUID.randomUUID();
+        String header = "Bearer valid.token";
+        TokenClaims claims =
+                new TokenClaims(subject, "jti-1", Instant.now(), Instant.now().plusSeconds(3600));
+        when(bearerTokenExtractor.extract(header)).thenReturn("valid.token");
+        when(jwtService.validateAccessToken("valid.token")).thenReturn(claims);
+        when(userRepository.findById(subject)).thenThrow(new DataAccessResourceFailureException("db down"));
+
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.addHeader("Authorization", header);
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        JwtAuthenticationFilter filter =
+                new JwtAuthenticationFilter(bearerTokenExtractor, jwtService, userRepository, OBJECT_MAPPER);
+        filter.doFilterInternal(request, response, chain);
+
+        assertEquals(503, response.getStatus());
+        assertNull(SecurityContextHolder.getContext().getAuthentication(), "must fail closed, not authenticate");
+        verifyNoInteractions(chain);
+    }
+
+    private static User activeUser(UUID id) {
+        User user = new User();
+        user.setId(id);
+        user.setEmail("active@example.com");
+        user.setPasswordHash("hash");
+        user.setEmailVerified(true);
+        return user;
     }
 
     static Stream<Arguments> failureCases() {

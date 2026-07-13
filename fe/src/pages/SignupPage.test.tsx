@@ -1,9 +1,10 @@
 import { render, screen } from '@testing-library/react'
 import userEvent, { type UserEvent } from '@testing-library/user-event'
-import { MemoryRouter } from 'react-router'
+import { MemoryRouter, Route, Routes } from 'react-router'
 import { afterEach, describe, expect, it, vi, type Mock } from 'vitest'
 import { SignupPage } from './SignupPage'
 import { ApiError } from '@/api/auth'
+import { AuthContext, type AuthContextValue, type AuthStatus } from '@/auth/auth-context'
 
 vi.mock('@/api/auth', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/api/auth')>()),
@@ -13,11 +14,25 @@ vi.mock('@/api/auth', async (importOriginal) => ({
 import { signup } from '@/api/auth'
 const signupMock = signup as Mock
 
-function renderPage() {
+function authValue(status: AuthStatus): AuthContextValue {
+  return {
+    status,
+    user: status === 'authenticated' ? { id: 'u1', email: 'me@example.com' } : null,
+    login: () => Promise.resolve(),
+    logout: () => Promise.resolve(),
+  }
+}
+
+function renderPage(status: AuthStatus = 'unauthenticated') {
   render(
-    <MemoryRouter>
-      <SignupPage />
-    </MemoryRouter>,
+    <AuthContext value={authValue(status)}>
+      <MemoryRouter initialEntries={['/signup']}>
+        <Routes>
+          <Route path="/signup" element={<SignupPage />} />
+          <Route path="/" element={<div data-testid="home">home</div>} />
+        </Routes>
+      </MemoryRouter>
+    </AuthContext>,
   )
 }
 
@@ -30,6 +45,13 @@ async function fillAndSubmit(user: UserEvent) {
 describe('SignupPage', () => {
   afterEach(() => {
     vi.resetAllMocks()
+  })
+
+  it('render_shouldRedirectToRoot_whenAlreadyAuthenticated', async () => {
+    renderPage('authenticated')
+
+    expect(await screen.findByTestId('home')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /sign up/i })).not.toBeInTheDocument()
   })
 
   it('submit_shouldSwapToConfirmation_whenSuccess', async () => {

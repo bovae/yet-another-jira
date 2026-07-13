@@ -12,13 +12,15 @@ export function commentsPath(ticketId: string): string {
 }
 
 /**
- * Backend `CommentResponse(id, ticketId, authorId, body, createdAt)` — camelCase JSON, ISO-8601 UTC
- * timestamp.
+ * Backend `CommentResponse(id, ticketId, authorId, authorEmail, body, createdAt)` — camelCase JSON,
+ * ISO-8601 UTC timestamp. `authorEmail` resolves the author's email server-side and is null if
+ * unresolved.
  */
 export interface CommentResponse {
   id: string
   ticketId: string
   authorId: string
+  authorEmail: string | null
   body: string
   createdAt: string
 }
@@ -76,6 +78,7 @@ function parseComment(payload: unknown): CommentResponse {
     id: payload.id,
     ticketId: payload.ticketId,
     authorId: payload.authorId,
+    authorEmail: typeof payload.authorEmail === 'string' ? payload.authorEmail : null,
     body: payload.body,
     createdAt: payload.createdAt,
   }

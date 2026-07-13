@@ -1,23 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { addComment, commentsPath, listComments } from './comments'
 import { ApiError } from './problem'
-
-function jsonResponse(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { 'Content-Type': 'application/json' },
-  })
-}
-
-/** RFC 9457 problem body — what the backend returns on failures. */
-function problemResponse(detail: string, status: number): Response {
-  return jsonResponse({ type: 'about:blank', title: 'Error', status, detail }, status)
-}
+import { jsonResponse, problemResponse } from '@/test/helpers'
 
 const COMMENT = {
   id: 'c1',
   ticketId: 'k1',
   authorId: 'u1',
+  authorEmail: null,
   body: 'First!',
   createdAt: '2026-07-12T00:00:00Z',
 }
@@ -49,7 +39,7 @@ describe('comments API', () => {
   })
 
   it('addComment_shouldPostBody_whenSuccess', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(COMMENT, 201))
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(COMMENT, { status: 201 }))
     vi.stubGlobal('fetch', fetchMock)
 
     const result = await addComment('k1', 'First!')
@@ -62,7 +52,7 @@ describe('comments API', () => {
   })
 
   it('addComment_shouldThrowApiErrorWithDetail_whenRejected', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(problemResponse('Body is required.', 400)))
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(problemResponse(400, 'Body is required.')))
 
     const error = await addComment('k1', '').catch((e: unknown) => e)
 

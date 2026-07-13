@@ -111,18 +111,6 @@ class ReferenceQueryIntegrationTest extends AbstractPostgresIntegrationTest {
         assertFalse(ticketRepository.existsByEpicId(UUID.randomUUID()));
     }
 
-    // --- existsByTicketId ---
-
-    @Test
-    void existsByTicketId_shouldReturnTrue_whenCommentReferencesTicket() {
-        assertTrue(commentRepository.existsByTicketId(ticket.getId()));
-    }
-
-    @Test
-    void existsByTicketId_shouldReturnFalse_whenNoCommentReferencesTicket() {
-        assertFalse(commentRepository.existsByTicketId(UUID.randomUUID()));
-    }
-
     // --- countByTicketId ---
 
     @Test

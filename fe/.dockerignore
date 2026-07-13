@@ -17,8 +17,12 @@ coverage/
 # IDE / editor metadata
 .idea/
 .vscode/
+*.iml
 *.swp
 .DS_Store
+
+# Docs (not needed inside the runtime image; e2e/ is kept — typecheck needs it)
+*.md
 
 # Docker files (not needed inside the build context)
 Dockerfile

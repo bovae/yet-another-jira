@@ -51,6 +51,8 @@ public class AuthSessionSteps {
                 response.getStatusCode().is2xxSuccessful(),
                 "Signup should succeed. Status: " + response.getStatusCode());
         lastRegisteredEmail = email;
+        // Publish so step classes (e.g. EpicSteps) can look the author up deterministically by email.
+        sharedState.setRegisteredEmail(email);
     }
 
     @And("the user's email is verified")

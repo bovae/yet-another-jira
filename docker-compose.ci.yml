@@ -1,0 +1,19 @@
+# CI-only overlay: adds a GitHub Actions layer cache to the image builds. Kept out of the base
+# docker-compose.yml so a local `docker compose up --build` never reaches for the gha cache backend
+# (which only exists inside GitHub Actions). Used via:
+#   docker compose -f docker-compose.yml -f docker-compose.ci.yml up --build  (with COMPOSE_BAKE=true)
+services:
+  be:
+    build:
+      context: ./be
+      cache_from:
+        - type=gha,scope=be
+      cache_to:
+        - type=gha,scope=be,mode=max
+  fe:
+    build:
+      context: ./fe
+      cache_from:
+        - type=gha,scope=fe
+      cache_to:
+        - type=gha,scope=fe,mode=max

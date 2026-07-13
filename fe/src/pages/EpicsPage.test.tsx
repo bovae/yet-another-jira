@@ -180,4 +180,45 @@ describe('EpicsPage', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Epic is referenced by tickets.')
     expect(screen.getByText('Login')).toBeInTheDocument()
   })
+
+  it('delete_shouldRemoveRow_whenConfirmedAndNoContent', async () => {
+    listEpicsMock.mockResolvedValueOnce([epic('e1', 'a', 'Login')]).mockResolvedValue([])
+    deleteEpicMock.mockResolvedValue(undefined)
+    const user = userEvent.setup()
+    renderPage()
+
+    await user.click(await screen.findByRole('button', { name: /delete login/i }))
+    await user.click(screen.getByRole('button', { name: /^delete$/i }))
+
+    expect(deleteEpicMock).toHaveBeenCalledWith('e1')
+    await waitFor(() => expect(screen.queryByText('Login')).not.toBeInTheDocument())
+    expect(screen.getByText(/no epics here yet/i)).toBeInTheDocument()
+  })
+
+  it('delete_shouldIssueNoRequestAndKeepRow_whenCancelled', async () => {
+    listEpicsMock.mockResolvedValue([epic('e1', 'a', 'Login')])
+    const user = userEvent.setup()
+    renderPage()
+
+    await user.click(await screen.findByRole('button', { name: /delete login/i }))
+    await user.click(screen.getByRole('button', { name: /cancel/i }))
+
+    expect(deleteEpicMock).not.toHaveBeenCalled()
+    expect(screen.getByText('Login')).toBeInTheDocument()
+  })
+
+  it('create_shouldKeepSubmitDisabledAndNotFire_whenTitleWhitespaceOnly', async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    await user.click(await screen.findByRole('button', { name: /new epic/i }))
+    await user.click(screen.getByRole('combobox', { name: 'Team' }))
+    await user.click(screen.getByRole('option', { name: 'Alpha' }))
+    await user.type(screen.getByRole('textbox', { name: 'Title' }), '   ')
+
+    const submit = screen.getByRole('button', { name: /^create$/i })
+    expect(submit).toBeDisabled()
+    await user.click(submit)
+    expect(createEpicMock).not.toHaveBeenCalled()
+  })
 })

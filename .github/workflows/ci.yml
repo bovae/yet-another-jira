@@ -142,8 +142,13 @@ jobs:
           node-version: "22"
           cache: npm
           cache-dependency-path: fe/package-lock.json
+      # buildx + the CI overlay let the image builds reuse a GitHub Actions layer cache; mailpit is
+      # always in the stack now, so no --profile flag.
+      - uses: docker/setup-buildx-action@v3
       - name: Start full stack
-        run: docker compose --profile mail up --build --detach
+        run: docker compose -f docker-compose.yml -f docker-compose.ci.yml up --build --detach
+        env:
+          COMPOSE_BAKE: "true"
       - name: Wait for the SPA-to-API path to be ready
         run: |
           for i in $(seq 1 60); do
@@ -152,10 +157,19 @@ jobs:
             fi
             echo "waiting for stack ($i)..."; sleep 5
           done
-          echo "stack did not become ready in time"; docker compose --profile mail logs; exit 1
+          echo "stack did not become ready in time"; docker compose logs; exit 1
       - name: Install dependencies
         run: npm ci
         working-directory: fe
+      - name: Resolve Playwright version
+        id: pw
+        working-directory: fe
+        run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ms-playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}
       - name: Install Playwright browser
         run: npx playwright install --with-deps chromium
         working-directory: fe
@@ -173,7 +187,7 @@ jobs:
           check_name: "FE E2E Report"
       - name: Dump compose logs on failure
         if: failure()
-        run: docker compose --profile mail logs
+        run: docker compose logs
       - name: Tear down
         if: always()
-        run: docker compose --profile mail down --volumes
+        run: docker compose -f docker-compose.yml -f docker-compose.ci.yml down --volumes

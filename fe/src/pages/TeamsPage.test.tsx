@@ -184,6 +184,21 @@ describe('TeamsPage', () => {
     expect(screen.getByText('Alpha')).toBeInTheDocument()
   })
 
+  it('create_shouldKeepSubmitDisabledAndNotFire_whenNameWhitespaceOnly', async () => {
+    listTeamsMock.mockResolvedValue([team('a', 'Alpha')])
+    const user = userEvent.setup()
+    renderPage()
+
+    await screen.findByText('Alpha')
+    await user.click(screen.getByRole('button', { name: /new team/i }))
+    await user.type(screen.getByRole('textbox', { name: 'Name' }), '   ')
+
+    const submit = screen.getByRole('button', { name: /^create$/i })
+    expect(submit).toBeDisabled()
+    await user.click(submit)
+    expect(createTeamMock).not.toHaveBeenCalled()
+  })
+
   it('delete_shouldIssueNoRequest_whenCancelled', async () => {
     listTeamsMock.mockResolvedValue([team('a', 'Alpha')])
     const user = userEvent.setup()

@@ -1,18 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { EPICS_PATH, createEpic, deleteEpic, listEpics, updateEpic } from './epics'
 import { ApiError } from './problem'
-
-function jsonResponse(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { 'Content-Type': 'application/json' },
-  })
-}
-
-/** RFC 9457 problem body — what the backend returns on failures. */
-function problemResponse(detail: string, status: number): Response {
-  return jsonResponse({ type: 'about:blank', title: 'Error', status, detail }, status)
-}
+import { jsonResponse, problemResponse } from '@/test/helpers'
 
 const EPIC = {
   id: 'e1',
@@ -65,7 +54,7 @@ describe('epics API', () => {
   })
 
   it('createEpic_shouldPostTeamIdTitleDescription_whenSuccess', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(EPIC, 201))
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(EPIC, { status: 201 }))
     vi.stubGlobal('fetch', fetchMock)
 
     const result = await createEpic({ teamId: 't1', title: 'Checkout', description: 'desc' })
@@ -82,7 +71,7 @@ describe('epics API', () => {
   })
 
   it('createEpic_shouldOmitDescription_whenEmpty', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(EPIC, 201))
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(EPIC, { status: 201 }))
     vi.stubGlobal('fetch', fetchMock)
 
     await createEpic({ teamId: 't1', title: 'Checkout', description: '' })
@@ -92,7 +81,7 @@ describe('epics API', () => {
   })
 
   it('createEpic_shouldThrowApiErrorWithDetail_whenValidationFails', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(problemResponse('Title is required.', 400)))
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(problemResponse(400, 'Title is required.')))
 
     const error = await createEpic({ teamId: 't1', title: '' }).catch((e: unknown) => e)
 
@@ -128,7 +117,7 @@ describe('epics API', () => {
   it('deleteEpic_shouldThrowApiErrorWithDetail_whenReferenced', async () => {
     vi.stubGlobal(
       'fetch',
-      vi.fn().mockResolvedValue(problemResponse('Epic is referenced by tickets.', 409)),
+      vi.fn().mockResolvedValue(problemResponse(409, 'Epic is referenced by tickets.')),
     )
 
     const error = await deleteEpic('e1').catch((e: unknown) => e)

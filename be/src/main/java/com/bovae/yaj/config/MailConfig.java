@@ -30,6 +30,8 @@ public class MailConfig {
         mailProperties.setProperty("mail.smtp.connectiontimeout", timeoutMillis);
         mailProperties.setProperty("mail.smtp.timeout", timeoutMillis);
         mailProperties.setProperty("mail.smtp.writetimeout", timeoutMillis);
+        // STARTTLS for relays that require an encrypted upgrade; the local mailpit runs plaintext (off).
+        mailProperties.setProperty("mail.smtp.starttls.enable", Boolean.toString(properties.startTls()));
 
         return mailSender;
     }

@@ -235,7 +235,8 @@ function EpicCreateDialog({
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (!teamId) {
+    // A team is required and a whitespace-only title is not submitted (matches TicketFormDialog).
+    if (!teamId || title.trim() === '') {
       return
     }
     setErrorMessage('')
@@ -305,7 +306,7 @@ function EpicCreateDialog({
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={mutation.isPending || !teamId || !title}>
+              <Button type="submit" disabled={mutation.isPending || !teamId || title.trim() === ''}>
                 {mutation.isPending ? 'Creating…' : 'Create'}
               </Button>
             </DialogFooter>
@@ -347,6 +348,10 @@ function EpicEditDialog({
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    // Whitespace-only titles are not submitted (matches TicketFormDialog); the backend trims.
+    if (title.trim() === '') {
+      return
+    }
     setErrorMessage('')
     mutation.mutate()
   }
@@ -393,7 +398,7 @@ function EpicEditDialog({
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button type="submit" disabled={mutation.isPending || !title}>
+            <Button type="submit" disabled={mutation.isPending || title.trim() === ''}>
               {mutation.isPending ? 'Saving…' : 'Save'}
             </Button>
           </DialogFooter>

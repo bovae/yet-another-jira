@@ -20,10 +20,13 @@ import com.bovae.yaj.config.CorsConfig;
 import com.bovae.yaj.config.SecurityConfig;
 import com.bovae.yaj.config.properties.CorsProperties;
 import com.bovae.yaj.config.properties.VerificationProperties;
+import com.bovae.yaj.domain.model.User;
+import com.bovae.yaj.domain.repository.UserRepository;
 import com.bovae.yaj.web.dto.MeResponse;
 import com.bovae.yaj.web.error.ProblemAuthenticationEntryPoint;
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
@@ -60,6 +63,10 @@ class AuthEnforcementSliceTest {
 
     @MockitoBean
     private CurrentUserService currentUserService;
+
+    // SecurityConfig wires the JWT filter, which now looks up the user to reject deleted/missing accounts.
+    @MockitoBean
+    private UserRepository userRepository;
 
     @MockitoBean
     private CorsProperties corsProperties;
@@ -109,6 +116,10 @@ class AuthEnforcementSliceTest {
         when(jwtService.validateAccessToken(VALID_TOKEN))
                 .thenReturn(new TokenClaims(
                         USER_ID, "jti-1", Instant.now(), Instant.now().plusSeconds(3600)));
+        // The filter's active-user check must find a non-deleted user or it rejects the request.
+        User activeUser = new User();
+        activeUser.setId(USER_ID);
+        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(activeUser));
         when(currentUserService.me()).thenReturn(new MeResponse(USER_ID, "user@example.com", true));
 
         mockMvc.perform(get(ME_URL).header("Authorization", BEARER_HEADER))

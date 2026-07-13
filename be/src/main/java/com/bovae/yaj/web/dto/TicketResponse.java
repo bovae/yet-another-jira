@@ -14,10 +14,11 @@ public record TicketResponse(
         String title,
         String body,
         UUID createdBy,
+        @Nullable String createdByEmail,
         Instant createdAt,
         Instant modifiedAt) {
 
-    public static TicketResponse from(Ticket ticket) {
+    public static TicketResponse from(Ticket ticket, @Nullable String createdByEmail) {
         return new TicketResponse(
                 ticket.getId(),
                 ticket.getTeamId(),
@@ -27,6 +28,7 @@ public record TicketResponse(
                 ticket.getTitle(),
                 ticket.getBody(),
                 ticket.getCreatedBy(),
+                createdByEmail,
                 ticket.getCreatedAt(),
                 ticket.getModifiedAt());
     }

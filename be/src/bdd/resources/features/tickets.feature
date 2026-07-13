@@ -1,12 +1,14 @@
 @tickets
 Feature: Ticket management — CRUD, validation, and change-only modified_at semantics
 
-  Scenario: Full ticket lifecycle with modified_at semantics and cascading delete
+  Background:
     Given a registered user with email "tickets@example.com" and password "StrongPass123!"
     And the user's email is verified
     When the user logs in with email "tickets@example.com" and password "StrongPass123!"
     Then the response status is 200
     And the response body contains an access token
+
+  Scenario: Full ticket lifecycle with modified_at semantics and cascading delete
     Given a ticket team named "Platform" exists
     When the user creates a ticket titled "Fix login" under the team
     Then the response status is 201
@@ -31,17 +33,8 @@ Feature: Ticket management — CRUD, validation, and change-only modified_at sem
     Then the response status is 404
 
   Scenario: A ticket cannot reference an epic from another team
-    Given a registered user with email "tickets@example.com" and password "StrongPass123!"
-    And the user's email is verified
-    When the user logs in with email "tickets@example.com" and password "StrongPass123!"
-    Then the response status is 200
-    And the response body contains an access token
     Given a ticket team named "Alpha" exists
     And a second ticket team named "Beta" exists
     And an epic exists under the second team
     When the user creates a ticket under the first team referencing the second team's epic
     Then the response status is 400
-
-  Scenario: Ticket endpoints reject an unauthenticated request
-    When an unauthenticated user lists tickets
-    Then the response status is 401

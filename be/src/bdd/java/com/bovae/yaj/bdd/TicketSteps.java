@@ -22,24 +22,17 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.web.server.LocalServerPort;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.lang.Nullable;
-import org.springframework.web.client.ResponseErrorHandler;
-import org.springframework.web.client.RestTemplate;
 
 public class TicketSteps {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
     private static final String TICKETS_URL = "/api/v1/tickets";
 
-    @LocalServerPort
-    private int port;
+    @Autowired
+    private ApiClient api;
 
     @Autowired
     private SharedScenarioState sharedState;
@@ -107,7 +100,7 @@ public class TicketSteps {
     @Given("the ticket has a comment")
     public void theTicketHasAComment() {
         assertNotNull(ticketId, "Ticket id must be known before adding a comment");
-        ResponseEntity<String> response = exchange(
+        ResponseEntity<String> response = api.exchange(
                 HttpMethod.POST,
                 TICKETS_URL + "/" + ticketId + "/comments",
                 Map.of("body", "A comment that should cascade on delete"),
@@ -126,10 +119,10 @@ public class TicketSteps {
         body.put("state", "new");
         body.put("title", title);
         body.put("body", "Initial body");
-        ResponseEntity<String> response = exchange(HttpMethod.POST, TICKETS_URL, body, true);
+        ResponseEntity<String> response = api.exchange(HttpMethod.POST, TICKETS_URL, body, true);
         sharedState.setLastResponse(response);
-        ticketId = extractId(response);
-        lastModifiedAt = extractInstant(response, "modifiedAt");
+        ticketId = ApiClient.extractId(response);
+        lastModifiedAt = ApiClient.extractInstant(response, "modifiedAt");
     }
 
     @When("the user creates a ticket under the first team referencing the second team's epic")
@@ -143,7 +136,7 @@ public class TicketSteps {
         body.put("epicId", epicId.toString());
         body.put("title", "Cross-team ticket");
         body.put("body", "References an epic from another team");
-        sharedState.setLastResponse(exchange(HttpMethod.POST, TICKETS_URL, body, true));
+        sharedState.setLastResponse(api.exchange(HttpMethod.POST, TICKETS_URL, body, true));
     }
 
     @When("the user updates the ticket title to {string}")
@@ -151,32 +144,27 @@ public class TicketSteps {
         JsonNode current = currentTicket();
         Map<String, String> body = putBodyFrom(current);
         body.put("title", title);
-        sharedState.setLastResponse(exchange(HttpMethod.PUT, ticketPath(), body, true));
+        sharedState.setLastResponse(api.exchange(HttpMethod.PUT, ticketPath(), body, true));
     }
 
     @When("the user re-saves the ticket with unchanged values")
     public void theUserReSavesTheTicketWithUnchangedValues() {
-        sharedState.setLastResponse(exchange(HttpMethod.PUT, ticketPath(), putBodyFrom(currentTicket()), true));
+        sharedState.setLastResponse(api.exchange(HttpMethod.PUT, ticketPath(), putBodyFrom(currentTicket()), true));
     }
 
     @When("the user changes the ticket state to {string}")
     public void theUserChangesTheTicketStateTo(String state) {
-        sharedState.setLastResponse(exchange(HttpMethod.PATCH, ticketPath(), Map.of("state", state), true));
+        sharedState.setLastResponse(api.exchange(HttpMethod.PATCH, ticketPath(), Map.of("state", state), true));
     }
 
     @When("the user deletes the ticket")
     public void theUserDeletesTheTicket() {
-        sharedState.setLastResponse(exchange(HttpMethod.DELETE, ticketPath(), null, true));
+        sharedState.setLastResponse(api.exchange(HttpMethod.DELETE, ticketPath(), null, true));
     }
 
     @When("the user gets the ticket")
     public void theUserGetsTheTicket() {
-        sharedState.setLastResponse(exchange(HttpMethod.GET, ticketPath(), null, true));
-    }
-
-    @When("an unauthenticated user lists tickets")
-    public void anUnauthenticatedUserListsTickets() {
-        sharedState.setLastResponse(exchange(HttpMethod.GET, TICKETS_URL, null, false));
+        sharedState.setLastResponse(api.exchange(HttpMethod.GET, ticketPath(), null, true));
     }
 
     // --- assertions ---
@@ -211,7 +199,7 @@ public class TicketSteps {
     // --- helpers ---
 
     private JsonNode currentTicket() {
-        ResponseEntity<String> fetched = exchange(HttpMethod.GET, ticketPath(), null, true);
+        ResponseEntity<String> fetched = api.exchange(HttpMethod.GET, ticketPath(), null, true);
         assertEquals(200, fetched.getStatusCode().value(), "GET should succeed");
         try {
             return MAPPER.readTree(fetched.getBody());
@@ -246,55 +234,5 @@ public class TicketSteps {
 
     private String ticketPath() {
         return TICKETS_URL + "/" + ticketId;
-    }
-
-    private ResponseEntity<String> exchange(
-            HttpMethod method, String path, @Nullable Map<String, String> body, boolean authenticated) {
-        HttpHeaders headers = new HttpHeaders();
-        if (body != null) {
-            headers.setContentType(MediaType.APPLICATION_JSON);
-        }
-        if (authenticated) {
-            String token = sharedState.getAccessToken();
-            assertNotNull(token, "Access token should be available");
-            headers.setBearerAuth(token);
-        }
-        HttpEntity<Map<String, String>> request = new HttpEntity<>(body, headers);
-        return restTemplate().exchange("http://localhost:" + port + path, method, request, String.class);
-    }
-
-    private static UUID extractId(ResponseEntity<String> response) {
-        try {
-            String body = response.getBody();
-            assertNotNull(body, "Create response body should not be null");
-            return UUID.fromString(MAPPER.readTree(body).get("id").asText());
-        } catch (Exception e) {
-            throw new IllegalStateException("Could not extract ticket id from response: " + response.getBody(), e);
-        }
-    }
-
-    private static Instant extractInstant(ResponseEntity<String> response, String field) {
-        try {
-            String body = response.getBody();
-            assertNotNull(body, "Response body should not be null");
-            return Instant.parse(MAPPER.readTree(body).get(field).asText());
-        } catch (Exception e) {
-            throw new IllegalStateException("Could not extract " + field + " from response: " + response.getBody(), e);
-        }
-    }
-
-    // JdkClientHttpRequestFactory (java.net.http) supports PATCH, unlike the default SimpleClientHttpRequestFactory.
-    private static RestTemplate restTemplate() {
-        RestTemplate rt = new RestTemplate(new JdkClientHttpRequestFactory());
-        rt.setErrorHandler(new NoOpResponseErrorHandler());
-        return rt;
-    }
-
-    /** Suppresses exception-throwing on 4xx/5xx so we can assert status codes directly. */
-    private static class NoOpResponseErrorHandler implements ResponseErrorHandler {
-        @Override
-        public boolean hasError(org.springframework.http.client.ClientHttpResponse response) {
-            return false;
-        }
     }
 }

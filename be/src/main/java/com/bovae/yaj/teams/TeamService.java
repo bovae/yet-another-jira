@@ -14,6 +14,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,6 +31,8 @@ public class TeamService {
     private static final String NOT_FOUND_MSG = "Team '%s' was not found.";
     private static final String HAS_REFERENCES_MSG =
             "Team '%s' cannot be deleted while it has epics or tickets; remove them first.";
+    // Deterministic list order: creation time, ties broken by id (stable under renames/updates).
+    private static final Sort CREATED_THEN_ID = Sort.by("createdAt").and(Sort.by("id"));
 
     private final TeamRepository teamRepository;
     private final EpicRepository epicRepository;
@@ -37,7 +40,9 @@ public class TeamService {
 
     @Transactional(readOnly = true)
     public List<TeamResponse> list() {
-        return teamRepository.findAll().stream().map(TeamResponse::from).toList();
+        return teamRepository.findAll(CREATED_THEN_ID).stream()
+                .map(TeamResponse::from)
+                .toList();
     }
 
     @Transactional(readOnly = true)

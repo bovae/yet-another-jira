@@ -1,12 +1,14 @@
 @teams
 Feature: Team management — CRUD lifecycle with referential delete guard
 
-  Scenario: Authenticated user creates, lists, renames, and deletes a team with the delete guard enforced
+  Background:
     Given a registered user with email "teams@example.com" and password "StrongPass123!"
     And the user's email is verified
     When the user logs in with email "teams@example.com" and password "StrongPass123!"
     Then the response status is 200
     And the response body contains an access token
+
+  Scenario: Authenticated user creates, lists, renames, and deletes a team with the delete guard enforced
     When the user creates a team named "Platform"
     Then the response status is 201
     And the response body contains team name "Platform"
@@ -26,6 +28,20 @@ Feature: Team management — CRUD lifecycle with referential delete guard
     When the user gets the team
     Then the response status is 404
 
-  Scenario: Team endpoints reject an unauthenticated request
-    When an unauthenticated user lists teams
-    Then the response status is 401
+  Scenario: Creating a team with a duplicate name is rejected
+    When the user creates a team named "Platform"
+    Then the response status is 201
+    When the user creates a team named "Platform"
+    Then the response status is 409
+
+  Scenario: Renaming a team to another team's name is rejected
+    When the user creates a team named "Platform"
+    Then the response status is 201
+    When the user creates a team named "Payments"
+    Then the response status is 201
+    When the user renames the team to "Platform"
+    Then the response status is 409
+
+  Scenario: Creating a team with a blank name is rejected
+    When the user creates a team named " "
+    Then the response status is 400

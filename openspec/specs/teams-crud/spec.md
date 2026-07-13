@@ -6,7 +6,7 @@ CRUD management of teams, the top-level grouping that epics and tickets belong t
 ## Requirements
 
 ### Requirement: List teams
-The system SHALL return all teams to any authenticated user via `GET /api/v1/teams`. No membership or ownership filtering applies — all verified users see all teams.
+The system SHALL return all teams to any authenticated user via `GET /api/v1/teams`. No membership or ownership filtering applies — all verified users see all teams. Results SHALL be ordered deterministically by creation time, ties broken by id, so repeated requests return the same order.
 
 #### Scenario: List returns all teams
 - **WHEN** an authenticated user requests `GET /api/v1/teams`
@@ -15,6 +15,17 @@ The system SHALL return all teams to any authenticated user via `GET /api/v1/tea
 #### Scenario: Empty list on fresh database
 - **WHEN** no teams exist and an authenticated user requests `GET /api/v1/teams`
 - **THEN** the response is `200` with an empty array
+
+#### Scenario: Stable order across requests
+- **WHEN** the same team list is requested twice with rows renamed in between
+- **THEN** the teams appear in the same creation-time order both times
+
+### Requirement: Vanished-row races return 404
+When a team row vanishes between load and flush (concurrent delete), rename and delete requests SHALL return `404` with an RFC 9457 problem detail, never `500`.
+
+#### Scenario: Team deleted during rename
+- **WHEN** a team is deleted concurrently while a rename or delete for it is in flight
+- **THEN** the losing request gets `404` with an RFC 9457 problem detail, not `500`
 
 ### Requirement: Create team
 The system SHALL create a team via `POST /api/v1/teams`. The name MUST be trimmed before validation and persistence, MUST be non-empty after trimming, MUST NOT exceed 100 characters after trimming, and MUST be unique case-insensitively. Uniqueness violations MUST surface as `409` even when the duplicate is detected by the database constraint rather than the pre-check (concurrent creates). `created_at`/`modified_at` are server-set UTC.

@@ -20,10 +20,10 @@ public class CurrentUserService {
 
     public MeResponse me() {
         UUID userId = currentUserProvider.requireCurrentUserId();
+        // JwtAuthenticationFilter already rejected deleted/missing users before the request reached a
+        // secured endpoint, so a present authentication guarantees an active account. The orElseThrow
+        // is a defensive backstop only.
         User user = userRepository.findById(userId).orElseThrow(() -> new UnauthorizedException(INVALID_TOKEN_MSG));
-        if (user.getDeletedAt() != null) {
-            throw new UnauthorizedException(INVALID_TOKEN_MSG);
-        }
         return MeResponse.from(user);
     }
 }

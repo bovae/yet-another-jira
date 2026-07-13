@@ -47,13 +47,13 @@ class SqlStatementCountIntegrationTest extends AbstractPostgresIntegrationTest {
     }
 
     @Test
-    void existsByTicketId_shouldExecuteInSingleStatement_whenCommentReferencesTicket() {
-        User user = persistUser("stmt-comment@example.com");
-        Team team = persistTeam("stmt-team-comment");
-        Ticket ticket = persistTicket(team.getId(), user.getId());
-        persistComment(ticket.getId(), user.getId());
+    void findBoardTickets_shouldExecuteInSingleStatement_whenTeamHasTickets() {
+        User user = persistUser("stmt-board@example.com");
+        Team team = persistTeam("stmt-team-board");
+        persistTicket(team.getId(), user.getId());
 
-        SqlStatementCount.assertSingleStatement(emf, em, () -> commentRepository.existsByTicketId(ticket.getId()));
+        SqlStatementCount.assertSingleStatement(
+                emf, em, () -> ticketRepository.findBoardTickets(team.getId(), null, null, null));
     }
 
     // --- count query: single statement ---

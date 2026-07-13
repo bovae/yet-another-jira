@@ -2,7 +2,6 @@ import { useState, type FormEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ApiError, addComment, listComments, type CommentResponse } from '@/api/comments'
 import { GENERIC_ERROR_MESSAGE } from '@/api/problem'
-import type { AuthUser } from '@/auth/auth-context'
 import { EmptyState } from '@/components/state/EmptyState'
 import { ErrorState } from '@/components/state/ErrorState'
 import { LoadingState } from '@/components/state/LoadingState'
@@ -14,10 +13,10 @@ import { formatTimestamp } from '@/lib/utils'
 /**
  * Comment thread for the ticket details view (fe-comments): lists comments oldest first with author and
  * timestamp, and an append-only add form. Comments are immutable, so no edit/delete controls render. The
- * author shows the current user's email when the `authorId` matches, otherwise the raw id in mono (D6).
+ * author renders the server-resolved `authorEmail`, falling back to the raw id in mono if unresolved.
  * Fetch/empty/error states are independent of the ticket fields.
  */
-export function CommentThread({ ticketId, me }: { ticketId: string; me: AuthUser | null }) {
+export function CommentThread({ ticketId }: { ticketId: string }) {
   const commentsQuery = useQuery({
     queryKey: ['comments', ticketId],
     queryFn: ({ signal }) => listComments(ticketId, { signal }),
@@ -40,7 +39,7 @@ export function CommentThread({ ticketId, me }: { ticketId: string; me: AuthUser
       ) : (
         <ul className="flex flex-col gap-3">
           {sortByCreatedAt(commentsQuery.data).map((comment) => (
-            <CommentItem key={comment.id} comment={comment} me={me} />
+            <CommentItem key={comment.id} comment={comment} />
           ))}
         </ul>
       )}
@@ -55,13 +54,12 @@ function sortByCreatedAt(comments: CommentResponse[]): CommentResponse[] {
   return [...comments].sort((a, b) => a.createdAt.localeCompare(b.createdAt))
 }
 
-function CommentItem({ comment, me }: { comment: CommentResponse; me: AuthUser | null }) {
-  const isMe = me?.id === comment.authorId
+function CommentItem({ comment }: { comment: CommentResponse }) {
   return (
     <li className="flex flex-col gap-1 rounded-md border border-hairline bg-canvas p-4">
       <div className="flex items-center gap-2 text-caption text-mute">
-        {isMe ? (
-          <span>{me.email}</span>
+        {comment.authorEmail ? (
+          <span>{comment.authorEmail}</span>
         ) : (
           <span className="font-mono text-caption-mono">{comment.authorId}</span>
         )}

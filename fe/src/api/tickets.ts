@@ -40,8 +40,9 @@ export function ticketStateLabel(code: string): string {
 }
 
 /**
- * Backend `TicketResponse(id, teamId, epicId?, type, state, title, body, createdBy, createdAt, modifiedAt)`
- * — camelCase JSON, ISO-8601 UTC timestamps. `epicId` is optional (nullable on the backend).
+ * Backend `TicketResponse(id, teamId, epicId?, type, state, title, body, createdBy, createdByEmail,
+ * createdAt, modifiedAt)` — camelCase JSON, ISO-8601 UTC timestamps. `epicId` is optional (nullable on
+ * the backend); `createdByEmail` resolves the creator's email server-side and is null if unresolved.
  */
 export interface TicketResponse {
   id: string
@@ -52,6 +53,7 @@ export interface TicketResponse {
   title: string
   body: string
   createdBy: string
+  createdByEmail: string | null
   createdAt: string
   modifiedAt: string
 }
@@ -204,6 +206,7 @@ function parseTicket(payload: unknown): TicketResponse {
     title: payload.title,
     body: payload.body,
     createdBy: payload.createdBy,
+    createdByEmail: typeof payload.createdByEmail === 'string' ? payload.createdByEmail : null,
     createdAt: payload.createdAt,
     modifiedAt: payload.modifiedAt,
   }

@@ -90,3 +90,10 @@ Auth API calls made by these screens (`signup`, `verify`, `resend`, and login vi
 #### Scenario: Malformed error response
 - **WHEN** an auth endpoint fails without a parseable problem body (e.g. network error, timeout)
 - **THEN** a generic human-readable failure message renders
+
+### Requirement: Authenticated users are redirected off auth screens
+When an already-authenticated user navigates to `/login` or `/signup`, the frontend SHALL redirect to `/` instead of rendering the form.
+
+#### Scenario: Login page with active session
+- **WHEN** an authenticated user opens `/login` or `/signup`
+- **THEN** they are redirected to `/` without seeing the form

@@ -1,18 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ApiError } from './problem'
 import { TEAMS_PATH, createTeam, deleteTeam, listTeams, renameTeam } from './teams'
-
-function jsonResponse(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { 'Content-Type': 'application/json' },
-  })
-}
-
-/** RFC 9457 problem body — what the backend returns on failures. */
-function problemResponse(detail: string, status: number): Response {
-  return jsonResponse({ type: 'about:blank', title: 'Error', status, detail }, status)
-}
+import { jsonResponse, problemResponse } from '@/test/helpers'
 
 const TEAM = {
   id: 't1',
@@ -50,7 +39,7 @@ describe('teams API', () => {
   })
 
   it('createTeam_shouldPostNameAndReturnTeam_whenSuccess', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(TEAM, 201))
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(TEAM, { status: 201 }))
     vi.stubGlobal('fetch', fetchMock)
 
     const result = await createTeam('Platform')
@@ -65,7 +54,7 @@ describe('teams API', () => {
   it('createTeam_shouldThrowApiErrorWithDetail_whenDuplicate', async () => {
     vi.stubGlobal(
       'fetch',
-      vi.fn().mockResolvedValue(problemResponse('A team with this name already exists.', 409)),
+      vi.fn().mockResolvedValue(problemResponse(409, 'A team with this name already exists.')),
     )
 
     const error = await createTeam('Platform').catch((e: unknown) => e)
@@ -99,7 +88,7 @@ describe('teams API', () => {
   })
 
   it('deleteTeam_shouldThrowApiErrorWithDetail_whenReferenced', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(problemResponse('Team still has epics.', 409)))
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(problemResponse(409, 'Team still has epics.')))
 
     const error = await deleteTeam('t1').catch((e: unknown) => e)
 

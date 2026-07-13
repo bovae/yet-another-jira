@@ -20,6 +20,9 @@ public class SharedScenarioState {
     private String accessToken;
 
     @Nullable
+    private String registeredEmail;
+
+    @Nullable
     public ResponseEntity<String> getLastResponse() {
         return lastResponse;
     }
@@ -35,5 +38,14 @@ public class SharedScenarioState {
 
     public void setAccessToken(String accessToken) {
         this.accessToken = accessToken;
+    }
+
+    @Nullable
+    public String getRegisteredEmail() {
+        return registeredEmail;
+    }
+
+    public void setRegisteredEmail(String registeredEmail) {
+        this.registeredEmail = registeredEmail;
     }
 }

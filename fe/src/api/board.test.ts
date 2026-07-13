@@ -1,18 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { boardPath, getBoard, type BoardView } from './board'
 import { ApiError } from './problem'
-
-function jsonResponse(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { 'Content-Type': 'application/json' },
-  })
-}
-
-/** RFC 9457 problem body — what the backend returns on failures. */
-function problemResponse(detail: string, status: number): Response {
-  return jsonResponse({ type: 'about:blank', title: 'Error', status, detail }, status)
-}
+import { jsonResponse, problemResponse } from '@/test/helpers'
 
 const TEAM_ID = 't1'
 
@@ -92,7 +81,7 @@ describe('getBoard', () => {
   })
 
   it('throws an ApiError carrying the problem detail on a non-success status', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(problemResponse('Team not found.', 404)))
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(problemResponse(404, 'Team not found.')))
 
     const error = await getBoard(TEAM_ID).catch((e: unknown) => e)
 

@@ -153,6 +153,7 @@ describe('TicketFormDialog', () => {
         title: 'Old title',
         body: 'Old body',
         createdBy: 'u1',
+        createdByEmail: null,
         createdAt: '2026-07-12T00:00:00Z',
         modifiedAt: '2026-07-12T00:00:00Z',
       },

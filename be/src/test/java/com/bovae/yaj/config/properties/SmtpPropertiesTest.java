@@ -38,7 +38,7 @@ class SmtpPropertiesTest {
     @ValueSource(ints = {1, 587, 65535})
     void validate_shouldReportNoViolations_whenAllFieldsValid(int port) {
         Set<ConstraintViolation<SmtpProperties>> violations = validator.validate(
-                new SmtpProperties("smtp.example.com", port, "noreply@example.com", TIMEOUT, null, null));
+                new SmtpProperties("smtp.example.com", port, "noreply@example.com", TIMEOUT, null, null, false));
         assertTrue(violations.isEmpty(), () -> "expected no violations but got: " + violations);
     }
 
@@ -47,7 +47,7 @@ class SmtpPropertiesTest {
     @ValueSource(strings = {" ", "\t"})
     void validate_shouldReportViolation_whenHostBlank(String host) {
         Set<ConstraintViolation<SmtpProperties>> violations =
-                validator.validate(new SmtpProperties(host, 587, "noreply@example.com", TIMEOUT, null, null));
+                validator.validate(new SmtpProperties(host, 587, "noreply@example.com", TIMEOUT, null, null, false));
         assertFalse(violations.isEmpty(), "blank host must violate @NotBlank");
     }
 
@@ -56,7 +56,7 @@ class SmtpPropertiesTest {
     @ValueSource(strings = {" ", "\t"})
     void validate_shouldReportViolation_whenFromBlank(String from) {
         Set<ConstraintViolation<SmtpProperties>> violations =
-                validator.validate(new SmtpProperties("smtp.example.com", 587, from, TIMEOUT, null, null));
+                validator.validate(new SmtpProperties("smtp.example.com", 587, from, TIMEOUT, null, null, false));
         assertFalse(violations.isEmpty(), "blank from must violate @NotBlank");
     }
 
@@ -64,14 +64,14 @@ class SmtpPropertiesTest {
     @ValueSource(ints = {0, -1, 65536})
     void validate_shouldReportViolation_whenPortOutOfRange(int port) {
         Set<ConstraintViolation<SmtpProperties>> violations = validator.validate(
-                new SmtpProperties("smtp.example.com", port, "noreply@example.com", TIMEOUT, null, null));
+                new SmtpProperties("smtp.example.com", port, "noreply@example.com", TIMEOUT, null, null, false));
         assertFalse(violations.isEmpty(), "out-of-range port must violate @Min/@Max");
     }
 
     @Test
     void validate_shouldReportViolation_whenTimeoutNull() {
         Set<ConstraintViolation<SmtpProperties>> violations = validator.validate(
-                new SmtpProperties("smtp.example.com", 587, "noreply@example.com", null, null, null));
+                new SmtpProperties("smtp.example.com", 587, "noreply@example.com", null, null, null, false));
         assertFalse(violations.isEmpty(), "null timeout must violate @NotNull");
     }
 }

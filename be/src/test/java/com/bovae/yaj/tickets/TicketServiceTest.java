@@ -4,15 +4,18 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.bovae.yaj.domain.model.Epic;
 import com.bovae.yaj.domain.model.Ticket;
+import com.bovae.yaj.domain.model.User;
 import com.bovae.yaj.domain.repository.EpicRepository;
 import com.bovae.yaj.domain.repository.TeamRepository;
 import com.bovae.yaj.domain.repository.TicketRepository;
+import com.bovae.yaj.domain.repository.UserRepository;
 import com.bovae.yaj.error.NotFoundException;
 import com.bovae.yaj.error.ValidationException;
 import com.bovae.yaj.security.CurrentUserProvider;
@@ -32,6 +35,8 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Sort;
 
 @ExtendWith(MockitoExtension.class)
 class TicketServiceTest {
@@ -42,6 +47,7 @@ class TicketServiceTest {
     private static final UUID OTHER_TEAM_ID = UUID.fromString("99999999-9999-9999-9999-999999999999");
     private static final UUID EPIC_ID = UUID.fromString("22222222-2222-2222-2222-222222222222");
     private static final UUID USER_ID = UUID.fromString("44444444-4444-4444-4444-444444444444");
+    private static final String USER_EMAIL = "author@example.com";
     private static final String TOO_LONG_TITLE = "a".repeat(201);
     private static final String TOO_LONG_BODY = "b".repeat(10001);
 
@@ -55,6 +61,9 @@ class TicketServiceTest {
     private EpicRepository epicRepository;
 
     @Mock
+    private UserRepository userRepository;
+
+    @Mock
     private CurrentUserProvider currentUserProvider;
 
     @Captor
@@ -64,7 +73,8 @@ class TicketServiceTest {
 
     @BeforeEach
     void setUp() {
-        ticketService = new TicketService(ticketRepository, teamRepository, epicRepository, currentUserProvider);
+        ticketService = new TicketService(
+                ticketRepository, teamRepository, epicRepository, userRepository, currentUserProvider);
     }
 
     // --- create ---
@@ -178,6 +188,68 @@ class TicketServiceTest {
         verify(ticketRepository, never()).saveAndFlush(any());
     }
 
+    // --- write races (insert-side FK) ---
+
+    @Test
+    void create_shouldTranslateToNotFound_whenTeamVanishesBeforeFlush() {
+        // team exists at the pre-check, then vanishes by the time the FK-violating flush is re-checked.
+        when(teamRepository.existsById(TEAM_ID)).thenReturn(true, false);
+        when(currentUserProvider.requireCurrentUserId()).thenReturn(USER_ID);
+        when(ticketRepository.saveAndFlush(any(Ticket.class)))
+                .thenThrow(new DataIntegrityViolationException("fk_team"));
+
+        assertThrows(NotFoundException.class, () -> ticketService.create(TEAM_ID, "bug", "new", null, "Title", "Body"));
+    }
+
+    @Test
+    void create_shouldTranslateToNotFound_whenEpicVanishesBeforeFlush() {
+        when(teamRepository.existsById(TEAM_ID)).thenReturn(true);
+        when(epicRepository.findById(EPIC_ID)).thenReturn(Optional.of(epicOfTeam(TEAM_ID)));
+        when(epicRepository.existsById(EPIC_ID)).thenReturn(false);
+        when(currentUserProvider.requireCurrentUserId()).thenReturn(USER_ID);
+        when(ticketRepository.saveAndFlush(any(Ticket.class)))
+                .thenThrow(new DataIntegrityViolationException("fk_epic"));
+
+        assertThrows(
+                NotFoundException.class, () -> ticketService.create(TEAM_ID, "bug", "new", EPIC_ID, "Title", "Body"));
+    }
+
+    @Test
+    void update_shouldTranslateToNotFound_whenTeamVanishesBeforeFlush() {
+        when(ticketRepository.findById(TICKET_ID)).thenReturn(Optional.of(existingTicket()));
+        when(teamRepository.existsById(OTHER_TEAM_ID)).thenReturn(true, false);
+        when(ticketRepository.saveAndFlush(any(Ticket.class)))
+                .thenThrow(new DataIntegrityViolationException("fk_team"));
+
+        assertThrows(
+                NotFoundException.class,
+                () -> ticketService.update(TICKET_ID, OTHER_TEAM_ID, "bug", "new", null, "Title", "Body"));
+    }
+
+    // --- creator email resolution ---
+
+    @Test
+    void get_shouldResolveCreatedByEmail_whenCreatorExists() {
+        when(ticketRepository.findById(TICKET_ID)).thenReturn(Optional.of(existingTicket()));
+        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(userWithEmail(USER_ID, USER_EMAIL)));
+
+        assertEquals(USER_EMAIL, ticketService.get(TICKET_ID).createdByEmail());
+    }
+
+    @Test
+    void list_shouldResolveEmailsWithoutPerRowQueries() {
+        when(ticketRepository.findAll(any(Sort.class))).thenReturn(List.of(existingTicket(), existingTicket()));
+        when(userRepository.findAllById(List.of(USER_ID))).thenReturn(List.of(userWithEmail(USER_ID, USER_EMAIL)));
+
+        List<TicketResponse> result = ticketService.list(null);
+
+        assertEquals(USER_EMAIL, result.get(0).createdByEmail());
+        assertEquals(USER_EMAIL, result.get(1).createdByEmail());
+        // Batched: one findAllById over the distinct author id, never a per-row findById.
+        verify(userRepository).findAllById(List.of(USER_ID));
+        verify(userRepository, never()).findById(any());
+    }
+
     // --- get ---
 
     @Test
@@ -217,6 +289,20 @@ class TicketServiceTest {
         assertEquals("done", saved.getState());
         assertEquals("New title", saved.getTitle());
         assertEquals("New body", saved.getBody());
+    }
+
+    @Test
+    void update_shouldSetEpic_whenEpicBelongsToTeam() {
+        Ticket existing = existingTicket();
+        when(ticketRepository.findById(TICKET_ID)).thenReturn(Optional.of(existing));
+        when(teamRepository.existsById(TEAM_ID)).thenReturn(true);
+        when(epicRepository.findById(EPIC_ID)).thenReturn(Optional.of(epicOfTeam(TEAM_ID)));
+        when(ticketRepository.saveAndFlush(any(Ticket.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        ticketService.update(TICKET_ID, TEAM_ID, "bug", "new", EPIC_ID, "Title", "Body");
+
+        verify(ticketRepository).saveAndFlush(ticketCaptor.capture());
+        assertEquals(EPIC_ID, ticketCaptor.getValue().getEpicId(), "a same-team epic must be persisted, not cleared");
     }
 
     @Test
@@ -299,23 +385,23 @@ class TicketServiceTest {
 
     @Test
     void list_shouldFilterByTeam_whenTeamIdPresent() {
-        when(ticketRepository.findByTeamId(TEAM_ID)).thenReturn(List.of(existingTicket()));
+        when(ticketRepository.findByTeamId(eq(TEAM_ID), any(Sort.class))).thenReturn(List.of(existingTicket()));
 
         List<TicketResponse> result = ticketService.list(TEAM_ID);
 
         assertEquals(1, result.size());
         assertEquals(TEAM_ID, result.get(0).teamId());
-        verify(ticketRepository, never()).findAll();
+        verify(ticketRepository, never()).findAll(any(Sort.class));
     }
 
     @Test
     void list_shouldReturnAll_whenTeamIdAbsent() {
-        when(ticketRepository.findAll()).thenReturn(List.of(existingTicket()));
+        when(ticketRepository.findAll(any(Sort.class))).thenReturn(List.of(existingTicket()));
 
         List<TicketResponse> result = ticketService.list(null);
 
         assertEquals(1, result.size());
-        verify(ticketRepository, never()).findByTeamId(any());
+        verify(ticketRepository, never()).findByTeamId(any(), any());
     }
 
     // --- helpers ---
@@ -340,5 +426,12 @@ class TicketServiceTest {
         epic.setTeamId(teamId);
         epic.setTitle("Epic");
         return epic;
+    }
+
+    private static User userWithEmail(UUID id, String email) {
+        User user = new User();
+        user.setId(id);
+        user.setEmail(email);
+        return user;
     }
 }

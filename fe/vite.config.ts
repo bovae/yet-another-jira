@@ -29,6 +29,9 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
     css: true,
+    // Reset any vi.stubGlobal (e.g. the `fetch` stubs in the API tests) between tests so a stub
+    // can't leak into the next one.
+    unstubGlobals: true,
     exclude: ['e2e/**', 'node_modules/**'],
     reporters: ['default', ['junit', { outputFile: './test-results/vitest-junit.xml' }]],
   },

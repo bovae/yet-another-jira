@@ -57,9 +57,15 @@ test.describe('@smoke Board', () => {
     await page.mouse.down()
     await page.mouse.move(from.x + from.width / 2 + 20, from.y + from.height / 2, { steps: 5 })
     await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 10 })
+    // Register the PATCH waiter before the drop so a fast response isn't missed; awaiting it before
+    // the reload keeps the reload from racing the (optimistic-only) move ahead of persistence (F-48).
+    const patchPersisted = page.waitForResponse(
+      (res) => /\/api\/v1\/tickets\/[^/]+$/.test(res.url()) && res.request().method() === 'PATCH',
+    )
     await page.mouse.up()
 
     await expect(inProgressColumn.getByText(cardTitle)).toBeVisible()
+    await patchPersisted
 
     // Reload: the persisted state must keep the card in "In progress".
     await page.goto(`/?teamId=${team.id}`)

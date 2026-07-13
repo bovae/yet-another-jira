@@ -1,11 +1,11 @@
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
 import { TicketDetailsPage } from './TicketDetailsPage'
-import { AuthContext, type AuthContextValue } from '@/auth/auth-context'
 import { ApiError } from '@/api/problem'
+import { epic, makeQueryClient, team, ticket } from '@/test/helpers'
 
 vi.mock('@/api/tickets', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/api/tickets')>()),
@@ -39,65 +39,26 @@ const listTeamsMock = listTeams as Mock
 const listEpicsMock = listEpics as Mock
 const listCommentsMock = listComments as Mock
 
-const USER: AuthContextValue = {
-  status: 'authenticated',
-  user: { id: 'u1', email: 'me@example.com' },
-  login: () => Promise.resolve(),
-  logout: () => Promise.resolve(),
-}
-
-function ticket(extra: Record<string, unknown> = {}) {
-  return {
-    id: 'k1',
-    teamId: 'a',
-    epicId: 'e1',
-    type: 'bug',
-    state: 'ready_for_implementation',
-    title: 'Login broken',
-    body: 'Steps to reproduce',
-    createdBy: 'u1',
-    createdAt: '2026-07-12T00:00:00Z',
-    modifiedAt: '2026-07-12T00:00:00Z',
-    ...extra,
-  }
-}
-
-function renderPage(auth: AuthContextValue = USER) {
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+function renderPage() {
+  const client = makeQueryClient()
   render(
-    <AuthContext value={auth}>
-      <QueryClientProvider client={queryClient}>
-        <MemoryRouter initialEntries={['/tickets/k1']}>
-          <Routes>
-            <Route path="/tickets" element={<div>tickets list</div>} />
-            <Route path="/tickets/:id" element={<TicketDetailsPage />} />
-          </Routes>
-        </MemoryRouter>
-      </QueryClientProvider>
-    </AuthContext>,
+    <QueryClientProvider client={client}>
+      <MemoryRouter initialEntries={['/tickets/k1']}>
+        <Routes>
+          <Route path="/tickets" element={<div>tickets list</div>} />
+          <Route path="/tickets/:id" element={<TicketDetailsPage />} />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
   )
+  return client
 }
 
 describe('TicketDetailsPage', () => {
   beforeEach(() => {
-    getTicketMock.mockResolvedValue(ticket())
-    listTeamsMock.mockResolvedValue([
-      {
-        id: 'a',
-        name: 'Alpha',
-        createdAt: '2026-07-12T00:00:00Z',
-        modifiedAt: '2026-07-12T00:00:00Z',
-      },
-    ])
-    listEpicsMock.mockResolvedValue([
-      {
-        id: 'e1',
-        teamId: 'a',
-        title: 'Onboarding',
-        createdAt: '2026-07-12T00:00:00Z',
-        modifiedAt: '2026-07-12T00:00:00Z',
-      },
-    ])
+    getTicketMock.mockResolvedValue(ticket({ state: 'ready_for_implementation' }))
+    listTeamsMock.mockResolvedValue([team({ id: 't1', name: 'Alpha' })])
+    listEpicsMock.mockResolvedValue([epic({ id: 'e1', teamId: 't1', title: 'Onboarding' })])
     listCommentsMock.mockResolvedValue([])
   })
 
@@ -116,20 +77,32 @@ describe('TicketDetailsPage', () => {
     expect(screen.getByText('Onboarding')).toBeInTheDocument()
   })
 
-  it('details_shouldShowEmail_whenCreatedByCurrentUser', async () => {
+  it('details_shouldShowCreatedByEmail_whenResolved', async () => {
     renderPage()
 
     await screen.findByRole('heading', { name: 'Login broken' })
-    expect(screen.getByText('me@example.com')).toBeInTheDocument()
+    expect(screen.getByText('creator@example.com')).toBeInTheDocument()
   })
 
-  it('details_shouldShowRawId_whenCreatedByOtherUser', async () => {
-    getTicketMock.mockResolvedValue(ticket({ createdBy: 'someone-else' }))
+  it('details_shouldFallBackToRawCreatedById_whenEmailUnresolved', async () => {
+    getTicketMock.mockResolvedValue(ticket({ createdBy: 'someone-else', createdByEmail: null }))
     renderPage()
 
     await screen.findByRole('heading', { name: 'Login broken' })
     expect(screen.getByText('someone-else')).toBeInTheDocument()
-    expect(screen.queryByText('me@example.com')).not.toBeInTheDocument()
+    expect(screen.queryByText('creator@example.com')).not.toBeInTheDocument()
+  })
+
+  it('details_shouldShowNeutralEpicPlaceholder_whileEpicsPending', async () => {
+    // Epics never resolve, so the epic field can only show the neutral placeholder — never briefly
+    // claiming a real epic is "Unknown".
+    listEpicsMock.mockImplementation(() => new Promise(() => {}))
+    renderPage()
+
+    await screen.findByRole('heading', { name: 'Login broken' })
+    expect(screen.getByText('…')).toBeInTheDocument()
+    expect(screen.queryByText('Unknown epic')).not.toBeInTheDocument()
+    expect(screen.queryByText('Onboarding')).not.toBeInTheDocument()
   })
 
   it('details_shouldRenderNotFound_when404', async () => {
@@ -141,8 +114,8 @@ describe('TicketDetailsPage', () => {
 
   it('edit_shouldUpdateView_whenSaved', async () => {
     getTicketMock
-      .mockResolvedValueOnce(ticket())
-      .mockResolvedValue(ticket({ title: 'Login page 500s' }))
+      .mockResolvedValueOnce(ticket({ state: 'ready_for_implementation' }))
+      .mockResolvedValue(ticket({ state: 'ready_for_implementation', title: 'Login page 500s' }))
     updateTicketMock.mockResolvedValue(ticket({ title: 'Login page 500s' }))
     const user = userEvent.setup()
     renderPage()
@@ -169,6 +142,25 @@ describe('TicketDetailsPage', () => {
 
     expect(await screen.findByText('tickets list')).toBeInTheDocument()
     expect(deleteTicketMock).toHaveBeenCalledWith('k1')
+  })
+
+  it('delete_shouldInvalidateListsAndBoardAndDropTicketCache_whenConfirmed', async () => {
+    deleteTicketMock.mockResolvedValue(undefined)
+    const user = userEvent.setup()
+    const client = renderPage()
+    await screen.findByRole('heading', { name: 'Login broken' })
+    const invalidateSpy = vi.spyOn(client, 'invalidateQueries')
+    const removeSpy = vi.spyOn(client, 'removeQueries')
+
+    await user.click(screen.getByRole('button', { name: /^delete$/i }))
+    const dialog = screen.getByRole('alertdialog')
+    await user.click(within(dialog).getByRole('button', { name: /^delete$/i }))
+
+    await waitFor(() => {
+      expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['tickets'] })
+      expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['board'] })
+    })
+    expect(removeSpy).toHaveBeenCalledWith({ queryKey: ['ticket', 'k1'] })
   })
 
   it('delete_shouldIssueNoRequest_whenCancelled', async () => {
