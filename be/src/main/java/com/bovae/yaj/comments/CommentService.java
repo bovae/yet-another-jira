@@ -8,7 +8,6 @@ import com.bovae.yaj.domain.repository.UserRepository;
 import com.bovae.yaj.error.NotFoundException;
 import com.bovae.yaj.error.ValidationException;
 import com.bovae.yaj.security.CurrentUserProvider;
-import com.bovae.yaj.web.dto.CommentResponse;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -24,7 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @Transactional
 @RequiredArgsConstructor
-public class CommentService {
+class CommentService {
 
     private static final int MAX_BODY_LENGTH = 10000;
     private static final String BODY_REQUIRED_MSG = "A comment body is required.";

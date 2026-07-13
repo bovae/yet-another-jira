@@ -10,8 +10,6 @@ import com.bovae.yaj.auth.verification.VerificationTokenIssuer;
 import com.bovae.yaj.config.properties.SignupProperties;
 import com.bovae.yaj.domain.model.User;
 import com.bovae.yaj.domain.repository.UserRepository;
-import com.bovae.yaj.web.dto.SignupRequest;
-import com.bovae.yaj.web.dto.SignupResponse;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.Instant;
 import java.util.Optional;

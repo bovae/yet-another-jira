@@ -7,7 +7,6 @@ import com.bovae.yaj.domain.repository.TicketRepository;
 import com.bovae.yaj.error.ConflictException;
 import com.bovae.yaj.error.NotFoundException;
 import com.bovae.yaj.error.ValidationException;
-import com.bovae.yaj.web.dto.EpicResponse;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -23,7 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @Transactional
 @RequiredArgsConstructor
-public class EpicService {
+class EpicService {
 
     private static final int MAX_TITLE_LENGTH = 200;
     private static final int MAX_DESCRIPTION_LENGTH = 10000;

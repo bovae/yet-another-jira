@@ -12,7 +12,6 @@ import com.bovae.yaj.domain.repository.UserRepository;
 import com.bovae.yaj.error.NotFoundException;
 import com.bovae.yaj.error.ValidationException;
 import com.bovae.yaj.security.CurrentUserProvider;
-import com.bovae.yaj.web.dto.TicketResponse;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -30,7 +29,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @Transactional
 @RequiredArgsConstructor
-public class TicketService {
+class TicketService {
 
     private static final int MAX_TITLE_LENGTH = 200;
     private static final int MAX_BODY_LENGTH = 10000;

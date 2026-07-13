@@ -8,9 +8,6 @@ import com.bovae.yaj.domain.repository.EpicRepository;
 import com.bovae.yaj.domain.repository.TeamRepository;
 import com.bovae.yaj.domain.repository.TicketRepository;
 import com.bovae.yaj.error.NotFoundException;
-import com.bovae.yaj.web.dto.BoardCardResponse;
-import com.bovae.yaj.web.dto.BoardColumnResponse;
-import com.bovae.yaj.web.dto.BoardResponse;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -25,7 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @Transactional(readOnly = true)
 @RequiredArgsConstructor
-public class BoardService {
+class BoardService {
 
     private static final String TEAM_NOT_FOUND_MSG = "Team '%s' was not found.";
 

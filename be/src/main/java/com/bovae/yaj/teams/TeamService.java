@@ -7,7 +7,6 @@ import com.bovae.yaj.domain.repository.TicketRepository;
 import com.bovae.yaj.error.ConflictException;
 import com.bovae.yaj.error.NotFoundException;
 import com.bovae.yaj.error.ValidationException;
-import com.bovae.yaj.web.dto.TeamResponse;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -22,7 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @Transactional
 @RequiredArgsConstructor
-public class TeamService {
+class TeamService {
 
     private static final int MAX_NAME_LENGTH = 100;
     private static final String NAME_REQUIRED_MSG = "A team name is required.";

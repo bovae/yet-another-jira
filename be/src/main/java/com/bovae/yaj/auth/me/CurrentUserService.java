@@ -4,7 +4,6 @@ import com.bovae.yaj.domain.model.User;
 import com.bovae.yaj.domain.repository.UserRepository;
 import com.bovae.yaj.error.UnauthorizedException;
 import com.bovae.yaj.security.CurrentUserProvider;
-import com.bovae.yaj.web.dto.MeResponse;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
