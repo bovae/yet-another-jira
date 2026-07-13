@@ -3,8 +3,9 @@
  * team-change epic reset, drag-and-drop optimistic move + revert, and the create/open entry points.
  *
  * `@dnd-kit/core` is mocked: jsdom can't reproduce real pointer physics, so `DndContext` just renders
- * its children and exposes the `onDragEnd` handler, which the drag tests invoke directly. The click-vs-
- * drag activation distance is covered by the Playwright smoke instead.
+ * its children and exposes the drag lifecycle handlers (`onDragStart`/`onDragEnd`/`onDragCancel`), which
+ * the drag tests invoke directly, and `DragOverlay` renders its children inline. The click-vs-drag
+ * activation distance is covered by the Playwright smoke instead.
  */
 import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -14,19 +15,32 @@ import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vite
 import { BoardPage } from './BoardPage'
 import type { BoardView } from '../api/board'
 
-const dnd = vi.hoisted(() => ({ onDragEnd: undefined as ((event: unknown) => void) | undefined }))
+const dnd = vi.hoisted(() => ({
+  onDragStart: undefined as ((event: unknown) => void) | undefined,
+  onDragEnd: undefined as ((event: unknown) => void) | undefined,
+  onDragCancel: undefined as (() => void) | undefined,
+}))
 
 vi.mock('@dnd-kit/core', () => ({
   DndContext: ({
     children,
+    onDragStart,
     onDragEnd,
+    onDragCancel,
   }: {
     children: React.ReactNode
+    onDragStart: (event: unknown) => void
     onDragEnd: (event: unknown) => void
+    onDragCancel: () => void
   }) => {
+    dnd.onDragStart = onDragStart
     dnd.onDragEnd = onDragEnd
+    dnd.onDragCancel = onDragCancel
     return children
   },
+  DragOverlay: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="drag-overlay">{children}</div>
+  ),
   useDraggable: () => ({
     attributes: {},
     listeners: {},
@@ -131,7 +145,9 @@ function column(label: string) {
 
 describe('BoardPage', () => {
   beforeEach(() => {
+    dnd.onDragStart = undefined
     dnd.onDragEnd = undefined
+    dnd.onDragCancel = undefined
     listTeamsMock.mockResolvedValue([team('a', 'Alpha'), team('b', 'Beta')])
     listEpicsMock.mockResolvedValue([])
     getBoardMock.mockResolvedValue(board())
@@ -214,6 +230,30 @@ describe('BoardPage', () => {
     )
   })
 
+  it('search_shouldKeepPreviousBoardVisibleWithoutLoadingFlash_whileRefetching', async () => {
+    // First load resolves with a card; the filtered refetch is held pending so the in-flight state
+    // is observable, then resolved with different data (D6 — placeholderData: keepPreviousData).
+    let resolveRefetch: (value: BoardView) => void = () => {}
+    getBoardMock
+      .mockResolvedValueOnce(board({ new: [{ id: 'k1', title: 'Login broken' }] }))
+      .mockImplementationOnce(() => new Promise<BoardView>((resolve) => (resolveRefetch = resolve)))
+    const user = userEvent.setup()
+    renderPage()
+    await waitFor(() => expect(column('New').getByText('Login broken')).toBeInTheDocument())
+
+    await user.type(screen.getByRole('textbox', { name: /search tickets/i }), 'cache')
+
+    // Refetch in flight: the previous board stays rendered and LoadingState never appears.
+    await waitFor(() => expect(getBoardMock).toHaveBeenCalledTimes(2))
+    expect(column('New').getByText('Login broken')).toBeInTheDocument()
+    expect(screen.queryByText(/loading board/i)).not.toBeInTheDocument()
+
+    // Fresh data swaps in once the refetch resolves.
+    act(() => resolveRefetch(board({ new: [{ id: 'k2', title: 'Cache board data' }] })))
+    await waitFor(() => expect(column('New').getByText('Cache board data')).toBeInTheDocument())
+    expect(column('New').queryByText('Login broken')).not.toBeInTheDocument()
+  })
+
   it('filter_shouldResetEpic_whenTeamChanges', async () => {
     listEpicsMock.mockImplementation((teamId?: string) =>
       Promise.resolve(
@@ -239,6 +279,52 @@ describe('BoardPage', () => {
   })
 
   // --- drag and drop ---
+
+  it('drag_shouldRenderDraggedCardInOverlayOutsideSourceColumn_whenDragStarts', async () => {
+    getBoardMock.mockResolvedValue(board({ new: [{ id: 'k1', title: 'Login broken' }] }))
+    renderPage()
+    await waitFor(() => expect(column('New').getByText('Login broken')).toBeInTheDocument())
+
+    act(() => {
+      dnd.onDragStart?.({
+        active: {
+          id: 'k1',
+          data: {
+            current: { fromState: 'new', card: { id: 'k1', title: 'Login broken', type: 'bug' } },
+          },
+        },
+      })
+    })
+
+    // Overlay portal renders the card above all columns; the source card stays in place as a placeholder.
+    expect(within(screen.getByTestId('drag-overlay')).getByText('Login broken')).toBeInTheDocument()
+    expect(column('New').getByText('Login broken')).toBeInTheDocument()
+  })
+
+  it('drag_shouldClearOverlayAndIssueNoRequest_whenDragCancelled', async () => {
+    getBoardMock.mockResolvedValue(board({ new: [{ id: 'k1', title: 'Login broken' }] }))
+    renderPage()
+    await waitFor(() => expect(column('New').getByText('Login broken')).toBeInTheDocument())
+
+    act(() => {
+      dnd.onDragStart?.({
+        active: {
+          id: 'k1',
+          data: {
+            current: { fromState: 'new', card: { id: 'k1', title: 'Login broken', type: 'bug' } },
+          },
+        },
+      })
+    })
+    expect(within(screen.getByTestId('drag-overlay')).getByText('Login broken')).toBeInTheDocument()
+
+    act(() => dnd.onDragCancel?.())
+
+    expect(
+      within(screen.getByTestId('drag-overlay')).queryByText('Login broken'),
+    ).not.toBeInTheDocument()
+    expect(patchTicketStateMock).not.toHaveBeenCalled()
+  })
 
   it('drag_shouldOptimisticallyMoveCardToTargetColumn_whenDropped', async () => {
     getBoardMock.mockResolvedValue(board({ new: [{ id: 'k1', title: 'Login broken' }] }))

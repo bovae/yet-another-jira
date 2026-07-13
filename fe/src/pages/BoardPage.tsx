@@ -1,20 +1,23 @@
 import { useEffect, useState } from 'react'
 import {
   DndContext,
+  DragOverlay,
   KeyboardSensor,
   PointerSensor,
   pointerWithin,
   useSensor,
   useSensors,
   type DragEndEvent,
+  type DragStartEvent,
 } from '@dnd-kit/core'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useSearchParams } from 'react-router'
 import { getBoard, type BoardCard, type BoardView } from '@/api/board'
 import { listEpics } from '@/api/epics'
 import { listTeams } from '@/api/teams'
 import { TICKET_TYPES, patchTicketState } from '@/api/tickets'
 import { Column } from '@/components/Column'
+import { TicketCardContent } from '@/components/TicketCard'
 import { ErrorState } from '@/components/state/ErrorState'
 import { LoadingState } from '@/components/state/LoadingState'
 import { TicketFormDialog } from '@/components/tickets/TicketFormDialog'
@@ -43,6 +46,8 @@ export function BoardPage() {
   const [search, setSearch] = useState(() => searchParams.get('q') ?? '')
   const [createOpen, setCreateOpen] = useState(false)
   const [moveError, setMoveError] = useState('')
+  // The card being dragged, rendered in the DragOverlay so it stays visible outside its column (D1).
+  const [activeCard, setActiveCard] = useState<BoardCard | null>(null)
   const queryClient = useQueryClient()
 
   const teamIdParam = searchParams.get('teamId')
@@ -63,6 +68,9 @@ export function BoardPage() {
     queryFn: ({ signal }) =>
       getBoard(teamId, { type: typeFilter, epicId: epicFilter, q: qFilter }, { signal }),
     enabled: teams.length > 0,
+    // Keep the prior board rendered while a filter/search refetch is in flight, so LoadingState
+    // only appears on the first-ever load — not on every keystroke (D6).
+    placeholderData: keepPreviousData,
   })
 
   const epicsQuery = useQuery({
@@ -138,7 +146,12 @@ export function BoardPage() {
     updateParams((next) => (value === ALL ? next.delete(key) : next.set(key, value)))
   }
 
+  function handleDragStart(event: DragStartEvent) {
+    setActiveCard((event.active.data.current?.card as BoardCard | undefined) ?? null)
+  }
+
   function handleDragEnd(event: DragEndEvent) {
+    setActiveCard(null)
     const { active, over } = event
     if (!over) {
       return
@@ -252,7 +265,13 @@ export function BoardPage() {
           retrying={boardQuery.isFetching}
         />
       ) : (
-        <DndContext sensors={sensors} collisionDetection={pointerWithin} onDragEnd={handleDragEnd}>
+        <DndContext
+          sensors={sensors}
+          collisionDetection={pointerWithin}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+          onDragCancel={() => setActiveCard(null)}
+        >
           <div
             className="grid grid-flow-col auto-cols-[minmax(240px,1fr)] gap-4 overflow-x-auto pb-2"
             data-testid="board"
@@ -261,6 +280,9 @@ export function BoardPage() {
               <Column key={column.state} column={column} />
             ))}
           </div>
+          <DragOverlay dropAnimation={null}>
+            {activeCard ? <TicketCardContent card={activeCard} /> : null}
+          </DragOverlay>
         </DndContext>
       )}
 

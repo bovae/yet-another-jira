@@ -71,3 +71,14 @@ databaseChangeLog:
             relativeToChangelogFile: false
             splitStatements: true
             endDelimiter: ";"
+  # Local-only demo seed
+  - changeSet:
+      id: 0009-local-seed-data
+      author: bovae
+      contextFilter: local
+      changes:
+        - sqlFile:
+            path: db/changelog/sql/0009-local-seed-data.sql
+            relativeToChangelogFile: false
+            splitStatements: true
+            endDelimiter: ";"

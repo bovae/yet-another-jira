@@ -35,7 +35,7 @@ are in the [Epic Catalog](#3-epic-catalog-major-one-by-one).
 - [x] **E14** — FE ticket views + comments
 - [x] **E9** — Board read (columns, ordering, filters, search)
 - [x] **E15** — FE board + selector + filters + DnD
-- [ ] **E10** — Board drag-and-drop persistence
+- [x] **E10** — Board drag-and-drop persistence
 
 ---
 
