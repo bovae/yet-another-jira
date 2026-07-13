@@ -51,7 +51,7 @@ that file — epics track *new* behavior, this file tracks *fixing what exists*.
 - [x] **F-03** (fe) — mock board endpoint now requires auth: stock `docker compose up` renders a permanent board error
 - [x] **F-04** (be-test) — BDD verify-user step picks `findAll().get(size-1)` with no ordering + skeleton feature never cleans up → cross-feature flake
 - [x] **F-05** (be-test) — login failure paths (401 bad password, 403 unverified, 429 rate limit) have no BDD coverage through the real filter chain
-- [ ] **F-37** (infra) — in-flight seed-data change plans `YAJ_LIQUIBASE_CONTEXTS=local` as the compose **default**: QA's clean-checkout `docker compose up --build` would start with preloaded data, violating §9 and a graded DoD item (proposal-stage catch)
+- [x] **F-37** (infra) — in-flight seed-data change plans `YAJ_LIQUIBASE_CONTEXTS=local` as the compose **default**: QA's clean-checkout `docker compose up --build` would start with preloaded data, violating §9 and a graded DoD item (proposal-stage catch) (**skip for now**)
 
 ### Medium
 
@@ -70,75 +70,75 @@ that file — epics track *new* behavior, this file tracks *fixing what exists*.
 - [x] **F-18** (be-test) — `VerificationSteps` email-count checks use fixed sleeps and `<=` assertions: negative check can false-pass, missing emails undetected
 - [x] **F-19** (be-test) — misleading/duplicated tests: lambda-testing `CurrentUserProviderTest`, rate-limiter wrapper re-tests, reflection tests of trivial constructors
 - [x] **F-20** (be-test) — missing unit branch coverage: limiter null-count fail-open, `JwtService.parse` branches, `LogoutService` non-positive TTL, `RawTokenGenerator`
-- [ ] **F-38** (be-core) — insert-side FK races in tickets/epics/comments surface as raw 500 (the F-06 race class — fixed for teams delete-side only)
-- [ ] **F-39** (be-core) — row-vanished write races (`ObjectOptimisticLockingFailureException`) unmapped → 500 on concurrent update/delete
-- [ ] **F-40** (be-core) — comment author / ticket `createdBy` exposed only as raw UUID; UI renders other users' authorship as a bare UUID (confirmed live) — DoD acceptance risk
-- [ ] **F-41** (fe) — every Dialog/AlertDialog opens with **no modal scrim** and destructive buttons render ~2.4:1 contrast: `bg-black/50` / `text-white` are stock-palette classes deleted by the `--color-*: initial` reset (confirmed visually)
-- [ ] **F-42** (fe) — ticket delete invalidates only `['tickets']`: board (30s staleTime) keeps showing the deleted card, clicking it lands on "Ticket not found" (confirmed live via SPA nav)
-- [ ] **F-43** (fe) — board move mutation invalidates only the exact board key: sibling filter-combo caches, `['tickets']` and `['ticket', id]` serve the pre-move state for up to 30s
-- [ ] **F-44** (be-test) — BDD login rate-limit Valkey keys cleaned only by `@After("@auth")`: board.feature is at 4/5 logins for its fixed email — next scenario added fails with an unexplained 429
-- [ ] **F-45** (be-test) — no test in any layer pins that ticket UPDATE with an `epicId` keeps/sets the epic; a regression that always clears it passes the whole suite
-- [ ] **F-46** (be-test) — malformed-UUID inputs (path + query params) untested at every layer; the 400 problem+json contract rests on unpinned framework behavior
-- [ ] **F-47** (be-test) — ~60-line HTTP helper block copy-pasted into five BDD step classes, already diverged (only 2 of 5 are PATCH-capable)
-- [ ] **F-48** (fe) — board-smoke e2e reloads before the persistence PATCH resolves: intermittent failure masked by CI retries, on the flagship drag-persist flow
-- [ ] **F-49** (fe) — BoardPage error/retry unit coverage was dropped in the E15 rewrite (regression of the R1 baseline noted in F-36)
-- [ ] **F-50** (infra) — half-committed openspec archive: 36 stale pre-archive paths staged as adds; a plain `git commit` resurrects all old change dirs next to their archive copies
-- [ ] **F-51** (infra) — mailpit profile state inverted since R1: compose always starts it, but README still documents the `mail` profile and CI passes `--profile mail` four times (silent no-op)
-- [ ] **F-52** (infra) — README drift: dead mock-board URL, stale CORS default, `YAJ_SMTP_TIMEOUT` missing from the env table
+- [x] **F-38** (be-core) — insert-side FK races in tickets/epics/comments surface as raw 500 (the F-06 race class — fixed for teams delete-side only)
+- [x] **F-39** (be-core) — row-vanished write races (`ObjectOptimisticLockingFailureException`) unmapped → 500 on concurrent update/delete
+- [x] **F-40** (be-core) — comment author / ticket `createdBy` exposed only as raw UUID; UI renders other users' authorship as a bare UUID (confirmed live) — DoD acceptance risk
+- [x] **F-41** (fe) — every Dialog/AlertDialog opens with **no modal scrim** and destructive buttons render ~2.4:1 contrast: `bg-black/50` / `text-white` are stock-palette classes deleted by the `--color-*: initial` reset (confirmed visually)
+- [x] **F-42** (fe) — ticket delete invalidates only `['tickets']`: board (30s staleTime) keeps showing the deleted card, clicking it lands on "Ticket not found" (confirmed live via SPA nav)
+- [x] **F-43** (fe) — board move mutation invalidates only the exact board key: sibling filter-combo caches, `['tickets']` and `['ticket', id]` serve the pre-move state for up to 30s
+- [x] **F-44** (be-test) — BDD login rate-limit Valkey keys cleaned only by `@After("@auth")`: board.feature is at 4/5 logins for its fixed email — next scenario added fails with an unexplained 429
+- [x] **F-45** (be-test) — no test in any layer pins that ticket UPDATE with an `epicId` keeps/sets the epic; a regression that always clears it passes the whole suite
+- [x] **F-46** (be-test) — malformed-UUID inputs (path + query params) untested at every layer; the 400 problem+json contract rests on unpinned framework behavior
+- [x] **F-47** (be-test) — ~60-line HTTP helper block copy-pasted into five BDD step classes, already diverged (only 2 of 5 are PATCH-capable)
+- [x] **F-48** (fe) — board-smoke e2e reloads before the persistence PATCH resolves: intermittent failure masked by CI retries, on the flagship drag-persist flow
+- [x] **F-49** (fe) — BoardPage error/retry unit coverage was dropped in the E15 rewrite (regression of the R1 baseline noted in F-36)
+- [x] **F-50** (infra) — half-committed openspec archive: 36 stale pre-archive paths staged as adds; a plain `git commit` resurrects all old change dirs next to their archive copies
+- [x] **F-51** (infra) — mailpit profile state inverted since R1: compose always starts it, but README still documents the `mail` profile and CI passes `--profile mail` four times (silent no-op)
+- [x] **F-52** (infra) — README drift: dead mock-board URL, stale CORS default, `YAJ_SMTP_TIMEOUT` missing from the env table
 
 ### Low
 
-- [ ] **F-21** (be-auth) — soft-deleting a user does not revoke outstanding JWTs; `deletedAt` check lives only in `/me`
-- [ ] **F-22** (be-auth) — successful logins consume the login rate-limit window; 6th legitimate login in 15 min is locked out
-- [ ] **F-23** (be-auth) — email dispatcher catches only `MailException` (other RuntimeExceptions 500 after commit); logged `MailException` may embed recipient PII
-- [ ] **F-24** (be-auth) — logout with an already-expired token returns 401 instead of idempotent 204
-- [ ] **F-25** (be-auth) — signup 409 is a user-enumeration oracle while login/resend are deliberately uniform — decide and document
-- [ ] **F-26** (be-auth) — Valkey `STARTUP_TIMEOUT` (5s) is actually the permanent Lettuce command timeout: brown-out pins servlet threads 5s per call
-- [ ] **F-27** (be-test) — BDD teams cleanup deletes epics before tickets: latent FK failure once a scenario creates a ticket on an epic
-- [ ] **F-28** (be-test) — BDD scenario gaps: teams duplicate-name 409 / blank-name 400, signup duplicate-email 409 (unit-only today)
-- [ ] **F-29** (infra) — compose env values are hardcoded literals (no `${VAR:-default}`) though README presents them as overridable; mailpit is behind the `mail` profile but BE always points at it, so default-stack email fails at runtime
-- [ ] **F-30** (infra) — README drift: `make help` target doesn't exist; `fe-lint` described as "lint and format checks" but runs ESLint only
-- [ ] **F-31** (infra) — `YAJ_JWT_SECRET` in compose falls back to a public default: forgotten env var silently signs tokens with a known key
-- [ ] **F-32** (fe) — JWT stored in `localStorage` (XSS-readable) — acceptable now; revisit pattern in the FE auth epics
+- [x] **F-21** (be-auth) — soft-deleting a user does not revoke outstanding JWTs; `deletedAt` check lives only in `/me`
+- [x] **F-22** (be-auth) — successful logins consume the login rate-limit window; 6th legitimate login in 15 min is locked out
+- [x] **F-23** (be-auth) — email dispatcher catches only `MailException` (other RuntimeExceptions 500 after commit); logged `MailException` may embed recipient PII
+- [x] **F-24** (be-auth) — logout with an already-expired token returns 401 instead of idempotent 204
+- [x] **F-25** (be-auth) — signup 409 is a user-enumeration oracle while login/resend are deliberately uniform — decide and document — **wontfix (D18):** signup keeps the immediate "account exists" 409 as a deliberate UX choice; login/resend stay uniform because they are the attack-relevant oracles
+- [x] **F-26** (be-auth) — Valkey `STARTUP_TIMEOUT` (5s) is actually the permanent Lettuce command timeout: brown-out pins servlet threads 5s per call
+- [x] **F-27** (be-test) — BDD teams cleanup deletes epics before tickets: latent FK failure once a scenario creates a ticket on an epic
+- [x] **F-28** (be-test) — BDD scenario gaps: teams duplicate-name 409 / blank-name 400, signup duplicate-email 409 (unit-only today)
+- [x] **F-29** (infra) — compose env values are hardcoded literals (no `${VAR:-default}`) though README presents them as overridable; mailpit is behind the `mail` profile but BE always points at it, so default-stack email fails at runtime
+- [x] **F-30** (infra) — README drift: `make help` target doesn't exist; `fe-lint` described as "lint and format checks" but runs ESLint only
+- [x] **F-31** (infra) — `YAJ_JWT_SECRET` in compose falls back to a public default: forgotten env var silently signs tokens with a known key
+- [x] **F-32** (fe) — JWT stored in `localStorage` (XSS-readable) — acceptable now; revisit pattern in the FE auth epics — **wontfix (D27):** localStorage is accepted at this stage; revisit only if an auth epic introduces refresh tokens
 - [x] **F-33** (fe) — unused declared dependencies: `@dnd-kit/core` (until the DnD epic), `@testing-library/user-event` — resolved by usage (R2): both imported now
-- [ ] **F-34** (infra) — CI re-downloads Playwright browsers every e2e run; cache `~/.cache/ms-playwright`
-- [ ] **F-35** (fe) — Column card-count badge is `aria-hidden` with no screen-reader alternative
-- [ ] **F-36** (fe) — BoardPage retry-in-flight state untested; no e2e coverage of the board error state
-- [ ] **F-53** (be-core) — DTO bean validation double-covers service checks pre-trim and yields Spring's generic "Invalid request content." instead of the services' meaningful messages
-- [ ] **F-54** (be-core) — `created_at` (DB clock) and `modified_at` (JVM clock) come from two clock sources: fresh rows have `modified_at != created_at`, possibly earlier
-- [ ] **F-55** (be-core) — ordering queries lack tie-breaks: comments `createdAt ASC` and board `modifiedAt DESC` can reshuffle on equal timestamps
-- [ ] **F-56** (be-core) — teams/epics/tickets list endpoints have no ORDER BY: management screens reshuffle after edits (heap order)
-- [ ] **F-57** (be-core) — board title search folds case two ways (SQL `LOWER()` vs Java `toLowerCase(ROOT)`): non-ASCII titles can silently fail to match
-- [ ] **F-58** (be-core) — `Location` headers wrong behind the nginx proxy (no `forward-headers-strategy`, `Host` drops the port) — latent, nothing consumes them yet
-- [ ] **F-59** (be-core) — dead production surface: `CommentRepository.existsByTicketId`, `TicketState.position` (tests are the only consumers)
-- [ ] **F-60** (be-auth) — verification-email executor uses default `AbortPolicy`: SMTP brown-out + signup burst → `TaskRejectedException` after commit → 500 for a persisted signup
-- [ ] **F-61** (be-auth) — rate-limiter `retryAfterSeconds` heal path re-arms a full window when TTL reads 0/-2: user due to unblock in <1s gets another 15-minute lockout
-- [ ] **F-62** (be-auth) — Valkey outage posture inconsistent: JWT filter returns deliberate 503, rate limiters escape as generic 500 during the same outage
-- [ ] **F-63** (fe) — board card not keyboard-openable: Enter/Space feeds the dnd-kit KeyboardSensor, `onClick` never fires; keyboard/SR users must detour via /tickets
-- [ ] **F-64** (fe) — board search input seeds from URL once: back/forward or nav-link changes to `q` desync the input from results
-- [ ] **F-65** (fe) — "Could not move the ticket" banner persists across team/filter switches until the next drag
-- [ ] **F-66** (fe) — logout doesn't clear the TanStack Query cache: next account on the same browser is served the previous session's cached data
-- [ ] **F-67** (fe) — `login()` leaves a valid token in localStorage when the follow-up `fetchMe` fails non-401: form shows error, refresh silently logs in
-- [ ] **F-68** (fe) — boot hydration `fetchMe()` ignores abort: StrictMode double-mount fires two `/auth/me` calls
-- [ ] **F-69** (fe) — ticket details shows "Unknown epic" while the epics query is still pending — misleading text presented as data
-- [ ] **F-70** (fe) — authenticated user visiting /login or /signup gets the form instead of a redirect to /
-- [ ] **F-71** (fe) — whitespace-only names pass the client guards on team/epic forms (no trim); TicketFormDialog trims — inconsistent
-- [ ] **F-72** (fe) — `filter_shouldSendSearchTermAsQParam_afterDebounce` doesn't test debouncing: passes even if the debounce is deleted
-- [ ] **F-73** (fe) — API test cleanup is a no-op for fetch stubs: `vi.restoreAllMocks()` doesn't undo `vi.stubGlobal` (needs `unstubGlobals: true`)
-- [ ] **F-74** (fe) — `jsonResponse`/`problemResponse`, render wrappers and fixture builders copy-pasted across 6+ test files
-- [ ] **F-75** (fe) — EpicsPage delete has no success-path or confirm-cancel test (TeamsPage covers the analogous paths; separate code)
-- [ ] **F-76** (be-test) — `EpicSteps.soleUserId` uses `findAll().get(0)` — the F-04 pattern at a new site
-- [ ] **F-77** (be-test) — identical 5-line register/verify/login preamble repeated per scenario (board.feature ×4) instead of `Background`
-- [ ] **F-78** (be-test) — five structurally identical unauthenticated-401 scenarios across features; conventions say one Scenario Outline (slice test already parametrizes the matrix)
-- [ ] **F-79** (be-test) — suite hygiene: `findByEmail` case-variant tests unparametrized, enum round-trip test duplicates `assertSame` case, `TestSecurityConfig` is dead code
-- [ ] **F-80** (be-test) — comment immutability exists only by omission: nothing pins PUT/DELETE on comments → 405
-- [ ] **F-81** (be-test) — LIKE-escape contract for `_`/`\` never reaches Postgres in any test; no statement-count guard on `findBoardTickets`
-- [ ] **F-82** (infra) — `axllent/mailpit:latest` unpinned, no healthcheck, `be` doesn't depend on it
-- [ ] **F-83** (infra) — release workflow `npm install -g semantic-release ...` unpinned — unreproducible releases in the one workflow with `contents: write`
-- [ ] **F-84** (infra) — fe `.dockerignore` misses `*.md`/`*.iml` (doc edits bust the COPY layer); root `.dockerignore` is dead config
-- [ ] **F-85** (infra) — CI e2e job rebuilds both images from scratch every run (no buildx/GHA layer cache)
-- [ ] **F-86** (infra) — image hardening deferred: full JDK runtime (no jlink), fe nginx master runs as root
-- [ ] **F-87** (infra) — no SMTP STARTTLS/SSL knob: if `relay1.dataart.com` requires STARTTLS it can't be configured, and SMTP credentials would go plaintext
+- [x] **F-34** (infra) — CI re-downloads Playwright browsers every e2e run; cache `~/.cache/ms-playwright`
+- [x] **F-35** (fe) — Column card-count badge is `aria-hidden` with no screen-reader alternative
+- [x] **F-36** (fe) — BoardPage retry-in-flight state untested; no e2e coverage of the board error state
+- [x] **F-53** (be-core) — DTO bean validation double-covers service checks pre-trim and yields Spring's generic "Invalid request content." instead of the services' meaningful messages
+- [x] **F-54** (be-core) — `created_at` (DB clock) and `modified_at` (JVM clock) come from two clock sources: fresh rows have `modified_at != created_at`, possibly earlier
+- [x] **F-55** (be-core) — ordering queries lack tie-breaks: comments `createdAt ASC` and board `modifiedAt DESC` can reshuffle on equal timestamps
+- [x] **F-56** (be-core) — teams/epics/tickets list endpoints have no ORDER BY: management screens reshuffle after edits (heap order)
+- [x] **F-57** (be-core) — board title search folds case two ways (SQL `LOWER()` vs Java `toLowerCase(ROOT)`): non-ASCII titles can silently fail to match
+- [x] **F-58** (be-core) — `Location` headers wrong behind the nginx proxy (no `forward-headers-strategy`, `Host` drops the port) — latent, nothing consumes them yet
+- [x] **F-59** (be-core) — dead production surface: `CommentRepository.existsByTicketId`, `TicketState.position` (tests are the only consumers)
+- [x] **F-60** (be-auth) — verification-email executor uses default `AbortPolicy`: SMTP brown-out + signup burst → `TaskRejectedException` after commit → 500 for a persisted signup
+- [x] **F-61** (be-auth) — rate-limiter `retryAfterSeconds` heal path re-arms a full window when TTL reads 0/-2: user due to unblock in <1s gets another 15-minute lockout
+- [x] **F-62** (be-auth) — Valkey outage posture inconsistent: JWT filter returns deliberate 503, rate limiters escape as generic 500 during the same outage
+- [x] **F-63** (fe) — board card not keyboard-openable: Enter/Space feeds the dnd-kit KeyboardSensor, `onClick` never fires; keyboard/SR users must detour via /tickets
+- [x] **F-64** (fe) — board search input seeds from URL once: back/forward or nav-link changes to `q` desync the input from results
+- [x] **F-65** (fe) — "Could not move the ticket" banner persists across team/filter switches until the next drag
+- [x] **F-66** (fe) — logout doesn't clear the TanStack Query cache: next account on the same browser is served the previous session's cached data
+- [x] **F-67** (fe) — `login()` leaves a valid token in localStorage when the follow-up `fetchMe` fails non-401: form shows error, refresh silently logs in
+- [x] **F-68** (fe) — boot hydration `fetchMe()` ignores abort: StrictMode double-mount fires two `/auth/me` calls
+- [x] **F-69** (fe) — ticket details shows "Unknown epic" while the epics query is still pending — misleading text presented as data
+- [x] **F-70** (fe) — authenticated user visiting /login or /signup gets the form instead of a redirect to /
+- [x] **F-71** (fe) — whitespace-only names pass the client guards on team/epic forms (no trim); TicketFormDialog trims — inconsistent
+- [x] **F-72** (fe) — `filter_shouldSendSearchTermAsQParam_afterDebounce` doesn't test debouncing: passes even if the debounce is deleted
+- [x] **F-73** (fe) — API test cleanup is a no-op for fetch stubs: `vi.restoreAllMocks()` doesn't undo `vi.stubGlobal` (needs `unstubGlobals: true`)
+- [x] **F-74** (fe) — `jsonResponse`/`problemResponse`, render wrappers and fixture builders copy-pasted across 6+ test files
+- [x] **F-75** (fe) — EpicsPage delete has no success-path or confirm-cancel test (TeamsPage covers the analogous paths; separate code)
+- [x] **F-76** (be-test) — `EpicSteps.soleUserId` uses `findAll().get(0)` — the F-04 pattern at a new site
+- [x] **F-77** (be-test) — identical 5-line register/verify/login preamble repeated per scenario (board.feature ×4) instead of `Background`
+- [x] **F-78** (be-test) — five structurally identical unauthenticated-401 scenarios across features; conventions say one Scenario Outline (slice test already parametrizes the matrix)
+- [x] **F-79** (be-test) — suite hygiene: `findByEmail` case-variant tests unparametrized, enum round-trip test duplicates `assertSame` case, `TestSecurityConfig` is dead code
+- [x] **F-80** (be-test) — comment immutability exists only by omission: nothing pins PUT/DELETE on comments → 405
+- [x] **F-81** (be-test) — LIKE-escape contract for `_`/`\` never reaches Postgres in any test; no statement-count guard on `findBoardTickets`
+- [x] **F-82** (infra) — `axllent/mailpit:latest` unpinned, no healthcheck, `be` doesn't depend on it
+- [x] **F-83** (infra) — release workflow `npm install -g semantic-release ...` unpinned — unreproducible releases in the one workflow with `contents: write`
+- [x] **F-84** (infra) — fe `.dockerignore` misses `*.md`/`*.iml` (doc edits bust the COPY layer); root `.dockerignore` is dead config
+- [x] **F-85** (infra) — CI e2e job rebuilds both images from scratch every run (no buildx/GHA layer cache)
+- [x] **F-86** (infra) — image hardening deferred: full JDK runtime (no jlink), fe nginx master runs as root — **wontfix (D33):** jlink runtime and non-root nginx bring no value to this local-first grading stack
+- [x] **F-87** (infra) — no SMTP STARTTLS/SSL knob: if `relay1.dataart.com` requires STARTTLS it can't be configured, and SMTP credentials would go plaintext
 
 ---
 

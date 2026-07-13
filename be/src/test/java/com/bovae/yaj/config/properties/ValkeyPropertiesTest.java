@@ -7,6 +7,7 @@ import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validation;
 import jakarta.validation.Validator;
 import jakarta.validation.ValidatorFactory;
+import java.time.Duration;
 import java.util.Set;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -34,7 +35,7 @@ class ValkeyPropertiesTest {
     @ValueSource(ints = {1, 6379, 65535})
     void validate_shouldReportNoViolations_whenHostNonBlankAndPortInRange(int port) {
         Set<ConstraintViolation<ValkeyProperties>> violations =
-                validator.validate(new ValkeyProperties("valkey", port));
+                validator.validate(new ValkeyProperties("valkey", port, Duration.ofSeconds(1)));
         assertTrue(violations.isEmpty(), () -> "expected no violations but got: " + violations);
     }
 
@@ -42,7 +43,8 @@ class ValkeyPropertiesTest {
     @NullAndEmptySource
     @ValueSource(strings = {" ", "\t"})
     void validate_shouldReportViolation_whenHostBlank(String host) {
-        Set<ConstraintViolation<ValkeyProperties>> violations = validator.validate(new ValkeyProperties(host, 6379));
+        Set<ConstraintViolation<ValkeyProperties>> violations =
+                validator.validate(new ValkeyProperties(host, 6379, Duration.ofSeconds(1)));
         assertFalse(violations.isEmpty(), "blank host must violate @NotBlank");
     }
 
@@ -50,7 +52,7 @@ class ValkeyPropertiesTest {
     @ValueSource(ints = {0, -1, 65536, 70000})
     void validate_shouldReportViolation_whenPortOutOfRange(int port) {
         Set<ConstraintViolation<ValkeyProperties>> violations =
-                validator.validate(new ValkeyProperties("valkey", port));
+                validator.validate(new ValkeyProperties("valkey", port, Duration.ofSeconds(1)));
         assertFalse(violations.isEmpty(), "out-of-range port must violate @Min/@Max");
     }
 }

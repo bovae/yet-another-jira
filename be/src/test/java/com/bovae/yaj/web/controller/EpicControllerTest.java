@@ -14,6 +14,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.bovae.yaj.epics.EpicService;
+import com.bovae.yaj.error.ValidationException;
 import com.bovae.yaj.web.dto.EpicResponse;
 import com.bovae.yaj.web.error.GlobalExceptionHandler;
 import java.time.Instant;
@@ -90,15 +91,19 @@ class EpicControllerTest {
     }
 
     @Test
-    void create_shouldReturn400_whenTitleBlank() throws Exception {
+    void create_shouldReturn400WithServiceMessage_whenServiceRejectsBlankTitle() throws Exception {
+        // Blank-title validation now lives in EpicService (DTO @NotBlank was dropped), so the blank
+        // value reaches the service and its ValidationException maps to a 400 problem detail.
+        when(epicService.create(eq(TEAM_ID), eq("   "), any()))
+                .thenThrow(new ValidationException("An epic title is required."));
+
         mockMvc.perform(post(EPICS_URL)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"teamId":"%s","title":"   "}"""
                                 .formatted(TEAM_ID)))
-                .andExpect(status().isBadRequest());
-
-        verifyNoInteractions(epicService);
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.detail").value("An epic title is required."));
     }
 
     @Test

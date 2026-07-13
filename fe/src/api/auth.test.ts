@@ -15,18 +15,7 @@ import {
   signup,
   verify,
 } from './auth'
-
-function jsonResponse(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { 'Content-Type': 'application/json' },
-  })
-}
-
-/** RFC 9457 problem body — what the backend returns on auth failures. */
-function problemResponse(detail: string, status: number): Response {
-  return jsonResponse({ type: 'about:blank', title: 'Error', status, detail }, status)
-}
+import { jsonResponse, problemResponse } from '@/test/helpers'
 
 describe('auth API', () => {
   beforeEach(() => {
@@ -60,7 +49,7 @@ describe('auth API', () => {
   it('login_shouldThrowApiErrorWithDetailAndStatus_whenNonSuccessStatus', async () => {
     vi.stubGlobal(
       'fetch',
-      vi.fn().mockResolvedValue(problemResponse('Invalid email or password.', 401)),
+      vi.fn().mockResolvedValue(problemResponse(401, 'Invalid email or password.')),
     )
 
     const error = await login({ email: 'a@b.com', password: 'bad' }).catch((e: unknown) => e)
@@ -83,7 +72,7 @@ describe('auth API', () => {
   it('problemError_shouldCarryDetail_whenBodyIsProblemJson', async () => {
     vi.stubGlobal(
       'fetch',
-      vi.fn().mockResolvedValue(problemResponse('Email already registered.', 409)),
+      vi.fn().mockResolvedValue(problemResponse(409, 'Email already registered.')),
     )
 
     const error = await signup({ email: 'a@b.com', password: 'password1' }).catch((e: unknown) => e)
@@ -112,7 +101,7 @@ describe('auth API', () => {
       emailVerified: false,
       createdAt: '2026-07-12T00:00:00Z',
     }
-    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(body, 201))
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(body, { status: 201 }))
     vi.stubGlobal('fetch', fetchMock)
 
     const result = await signup({ email: 'a@b.com', password: 'password1' })
@@ -147,7 +136,7 @@ describe('auth API', () => {
   it('verify_shouldThrowApiErrorWithStatus_whenGone', async () => {
     vi.stubGlobal(
       'fetch',
-      vi.fn().mockResolvedValue(problemResponse('This link has expired.', 410)),
+      vi.fn().mockResolvedValue(problemResponse(410, 'This link has expired.')),
     )
 
     const error = await verify('stale').catch((e: unknown) => e)
@@ -161,7 +150,7 @@ describe('auth API', () => {
 
   it('resend_shouldPostEmailAndReturnMessage_whenAccepted', async () => {
     const body = { message: 'If an unverified account exists, a new email has been sent.' }
-    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(body, 202))
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(body, { status: 202 }))
     vi.stubGlobal('fetch', fetchMock)
 
     const result = await resend('a@b.com')
@@ -176,7 +165,7 @@ describe('auth API', () => {
   it('resend_shouldThrowApiErrorWithStatus_whenRateLimited', async () => {
     vi.stubGlobal(
       'fetch',
-      vi.fn().mockResolvedValue(problemResponse('Too many requests. Try again later.', 429)),
+      vi.fn().mockResolvedValue(problemResponse(429, 'Too many requests. Try again later.')),
     )
 
     const error = await resend('a@b.com').catch((e: unknown) => e)

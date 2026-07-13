@@ -15,6 +15,7 @@ interface ColumnProps {
  */
 export function Column({ column }: ColumnProps) {
   const label = ticketStateLabel(column.state)
+  const count = column.cards.length
   const { setNodeRef, isOver } = useDroppable({ id: column.state })
 
   return (
@@ -25,15 +26,14 @@ export function Column({ column }: ColumnProps) {
         isOver && 'ring-2 ring-inset ring-link',
       )}
       data-testid="board-column"
-      aria-label={label}
+      // Fold the count into the accessible name so screen readers hear "In Progress, 3 tickets"
+      // instead of the count being hidden away (F-35).
+      aria-label={`${label}, ${count} ${count === 1 ? 'ticket' : 'tickets'}`}
     >
       <header className="mb-3 flex items-center justify-between">
         <h2 className="text-body-sm-strong">{label}</h2>
-        <span
-          className="inline-flex min-w-5 items-center justify-center rounded-full border border-hairline bg-canvas px-1.5 text-body text-caption"
-          aria-hidden="true"
-        >
-          {column.cards.length}
+        <span className="inline-flex min-w-5 items-center justify-center rounded-full border border-hairline bg-canvas px-1.5 text-body text-caption">
+          {count}
         </span>
       </header>
       <div className="flex flex-col gap-2 overflow-y-auto">

@@ -190,6 +190,10 @@ function TeamFormDialog({
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    // Whitespace-only names are not submitted (matches TicketFormDialog); the backend trims the value.
+    if (name.trim() === '') {
+      return
+    }
     setErrorMessage('')
     mutation.mutate(name)
   }
@@ -223,7 +227,7 @@ function TeamFormDialog({
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button type="submit" disabled={mutation.isPending}>
+            <Button type="submit" disabled={mutation.isPending || name.trim() === ''}>
               {mutation.isPending ? 'Saving…' : isRename ? 'Save' : 'Create'}
             </Button>
           </DialogFooter>

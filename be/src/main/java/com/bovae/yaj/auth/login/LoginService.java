@@ -70,6 +70,10 @@ public class LoginService {
             throw new UnauthorizedException(INVALID_CREDENTIALS_MSG);
         }
 
+        // Correct credentials: the caller is legitimate, so clear the accumulated rate-limit window
+        // rather than making a valid user wait it out after a few earlier typos.
+        loginRateLimiter.reset(email);
+
         if (!user.isEmailVerified()) {
             throw new ForbiddenException(UNVERIFIED_MSG);
         }

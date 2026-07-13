@@ -1,5 +1,6 @@
 package com.bovae.yaj.auth.jwt;
 
+import com.bovae.yaj.domain.repository.UserRepository;
 import com.bovae.yaj.error.UnauthorizedException;
 import com.bovae.yaj.web.error.ProblemDetailFactory;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -10,6 +11,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataAccessException;
@@ -30,6 +32,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final BearerTokenExtractor bearerTokenExtractor;
     private final JwtService jwtService;
+    private final UserRepository userRepository;
     private final ObjectMapper objectMapper;
 
     @Override
@@ -59,12 +62,25 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         try {
             String token = bearerTokenExtractor.extract(header);
             TokenClaims claims = jwtService.validateAccessToken(token);
+            // A structurally valid token is not enough: the account may have been soft-deleted after
+            // the token was issued. Reject deleted/missing users here so no endpoint has to re-check.
+            if (!isActiveUser(claims.subject())) {
+                SecurityContextHolder.clearContext();
+                return;
+            }
             UsernamePasswordAuthenticationToken auth =
                     new UsernamePasswordAuthenticationToken(claims.subject(), null, List.of());
             SecurityContextHolder.getContext().setAuthentication(auth);
         } catch (UnauthorizedException ex) {
             SecurityContextHolder.clearContext();
         }
+    }
+
+    private boolean isActiveUser(UUID userId) {
+        return userRepository
+                .findById(userId)
+                .map(user -> user.getDeletedAt() == null)
+                .orElse(false);
     }
 
     private void writeServiceUnavailable(HttpServletResponse response) throws IOException {

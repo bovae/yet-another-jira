@@ -13,7 +13,6 @@ import com.bovae.yaj.web.dto.BoardColumnResponse;
 import com.bovae.yaj.web.dto.BoardResponse;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -66,12 +65,12 @@ public class BoardService {
 
     /**
      * Escapes LIKE wildcards ({@code \}, {@code %}, {@code _}) in user input so the search is a literal
-     * substring match, wraps it as a {@code %substring%} pattern, and lower-cases it to pair with the
-     * query's {@code LOWER(title)} for a case-insensitive match. Backslash is escaped first so it does
-     * not double-escape the wildcards added after it.
+     * substring match, then wraps it as a {@code %substring%} pattern. Case folding is left to the query
+     * ({@code LOWER(title) LIKE LOWER(:pattern)}) so both sides fold identically in the database.
+     * Backslash is escaped first so it does not double-escape the wildcards added after it.
      */
     private static String toLikePattern(String q) {
         String escaped = q.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
-        return ("%" + escaped + "%").toLowerCase(Locale.ROOT);
+        return "%" + escaped + "%";
     }
 }

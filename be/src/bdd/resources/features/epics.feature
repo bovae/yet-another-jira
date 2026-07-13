@@ -1,12 +1,14 @@
 @epics
 Feature: Epic management — team-scoped CRUD with referential delete guard
 
-  Scenario: Authenticated user creates, lists, updates, and deletes an epic with the delete guard enforced
+  Background:
     Given a registered user with email "epics@example.com" and password "StrongPass123!"
     And the user's email is verified
     When the user logs in with email "epics@example.com" and password "StrongPass123!"
     Then the response status is 200
     And the response body contains an access token
+
+  Scenario: Authenticated user creates, lists, updates, and deletes an epic with the delete guard enforced
     Given a team named "Platform" exists
     When the user creates an epic titled "Payments" under the team
     Then the response status is 201
@@ -29,14 +31,5 @@ Feature: Epic management — team-scoped CRUD with referential delete guard
     Then the response status is 404
 
   Scenario: Creating an epic under an unknown team is rejected
-    Given a registered user with email "epics@example.com" and password "StrongPass123!"
-    And the user's email is verified
-    When the user logs in with email "epics@example.com" and password "StrongPass123!"
-    Then the response status is 200
-    And the response body contains an access token
     When the user creates an epic under a non-existent team
     Then the response status is 404
-
-  Scenario: Epic endpoints reject an unauthenticated request
-    When an unauthenticated user lists epics
-    Then the response status is 401

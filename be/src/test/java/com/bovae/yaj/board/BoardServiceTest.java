@@ -159,10 +159,11 @@ class BoardServiceTest {
 
     // --- LIKE pattern building ---
 
+    // Case is preserved here — folding is done in the query (LOWER on both sides), not in Java.
     @ParameterizedTest(name = "q={0} -> pattern={1}")
     @CsvSource({
         "login, %login%",
-        "LoGin, %login%",
+        "LoGin, %LoGin%",
         "100%, %100\\%%",
         "a_b, %a\\_b%",
         "c\\d, %c\\\\d%",

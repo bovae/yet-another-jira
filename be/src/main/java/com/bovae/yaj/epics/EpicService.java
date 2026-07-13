@@ -14,6 +14,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Sort;
 import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,6 +34,8 @@ public class EpicService {
     private static final String TEAM_NOT_FOUND_MSG = "Team '%s' was not found.";
     private static final String HAS_TICKETS_MSG =
             "Epic '%s' cannot be deleted while tickets reference it; remove them first.";
+    // Deterministic list order: creation time, ties broken by id (stable under renames/updates).
+    private static final Sort CREATED_THEN_ID = Sort.by("createdAt").and(Sort.by("id"));
 
     private final EpicRepository epicRepository;
     private final TeamRepository teamRepository;
@@ -40,7 +43,9 @@ public class EpicService {
 
     @Transactional(readOnly = true)
     public List<EpicResponse> list(@Nullable UUID teamId) {
-        List<Epic> epics = (teamId != null) ? epicRepository.findByTeamId(teamId) : epicRepository.findAll();
+        List<Epic> epics = (teamId != null)
+                ? epicRepository.findByTeamId(teamId, CREATED_THEN_ID)
+                : epicRepository.findAll(CREATED_THEN_ID);
         return epics.stream().map(EpicResponse::from).toList();
     }
 
@@ -57,7 +62,15 @@ public class EpicService {
         epic.setTeamId(teamId);
         epic.setTitle(normalizeTitle(title));
         epic.setDescription(normalizeDescription(description));
-        Epic saved = epicRepository.saveAndFlush(epic);
+        Epic saved;
+        try {
+            saved = epicRepository.saveAndFlush(epic);
+        } catch (DataIntegrityViolationException ex) {
+            // The team was deleted between the pre-check and the insert flush; the FK violation is a
+            // vanished parent — surface the same 404 the pre-check would have returned.
+            LOG.warn("Epic insert race: team deleted before the flush; translating to 404");
+            throw new NotFoundException(TEAM_NOT_FOUND_MSG.formatted(teamId));
+        }
         LOG.info("Epic created: epicId={}, teamId={}", saved.getId(), teamId);
         return EpicResponse.from(saved);
     }

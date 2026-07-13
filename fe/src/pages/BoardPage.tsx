@@ -85,6 +85,16 @@ export function BoardPage() {
     useSensor(KeyboardSensor),
   )
 
+  // Follow external `q` changes (back/forward nav, a cleared filter) into the input. During typing the
+  // URL hasn't changed yet, so this is a no-op until the debounce writes q — then urlQ === search and
+  // it stays a no-op, avoiding a feedback loop. This is a deliberate external-system (URL) → controlled
+  // input sync, which is exactly what the setState-in-effect rule can't statically recognize.
+  useEffect(() => {
+    const urlQ = searchParams.get('q') ?? ''
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setSearch((current) => (current === urlQ ? current : urlQ))
+  }, [searchParams])
+
   // Debounce the search box into the `q` param so each keystroke doesn't fire a request (D3).
   useEffect(() => {
     const handle = setTimeout(() => {
@@ -118,12 +128,20 @@ export function BoardPage() {
       }
       setMoveError('Could not move the ticket. Please try again.')
     },
-    onSettled: () => {
-      void queryClient.invalidateQueries({ queryKey: boardKey })
+    onSettled: (_data, _error, variables) => {
+      // Invalidate the whole board for this team (prefix match covers every type/epic/search combo,
+      // not just the currently-viewed one), plus the ticket lists and the moved ticket's detail — a
+      // state change alters all of them.
+      void queryClient.invalidateQueries({ queryKey: ['board', teamId] })
+      void queryClient.invalidateQueries({ queryKey: ['tickets'] })
+      void queryClient.invalidateQueries({ queryKey: ['ticket', variables.id] })
     },
   })
 
   function updateParams(mutate: (params: URLSearchParams) => void) {
+    // Any team/filter/search change moves to a different board view, so a stale move error no longer
+    // applies — clear it here (the single param-mutation point) rather than in a setState effect.
+    setMoveError('')
     setSearchParams(
       (prev) => {
         const next = new URLSearchParams(prev)

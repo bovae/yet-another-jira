@@ -7,7 +7,7 @@
  * the drag tests invoke directly, and `DragOverlay` renders its children inline. The click-vs-drag
  * activation distance is covered by the Playwright smoke instead.
  */
-import { act, render, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes } from 'react-router'
@@ -84,6 +84,9 @@ const listTeamsMock = listTeams as Mock
 const listEpicsMock = listEpics as Mock
 const patchTicketStateMock = patchTicketState as Mock
 
+// Mirrors SEARCH_DEBOUNCE_MS in BoardPage (not exported); kept in sync here for the debounce test.
+const DEBOUNCE_MS = 300
+
 const STATES = ['new', 'ready_for_implementation', 'in_progress', 'ready_for_acceptance', 'done']
 const ORDERED_LABELS = [
   'New',
@@ -140,7 +143,8 @@ function renderPage(initialEntries: string[] = ['/']) {
 }
 
 function column(label: string) {
-  return within(screen.getByRole('region', { name: label }))
+  // The column's accessible name now folds in the count (e.g. "New, 0 tickets"), so match its prefix.
+  return within(screen.getByRole('region', { name: new RegExp(`^${label}, `) }))
 }
 
 describe('BoardPage', () => {
@@ -155,6 +159,8 @@ describe('BoardPage', () => {
   })
 
   afterEach(() => {
+    // Restore real timers so a fake-timer test can never leak its clock into the next one.
+    vi.useRealTimers()
     vi.resetAllMocks()
   })
 
@@ -166,7 +172,9 @@ describe('BoardPage', () => {
     await waitFor(() => expect(screen.getByTestId('board')).toBeInTheDocument())
 
     const columns = screen.getAllByTestId('board-column')
-    expect(columns.map((c) => c.getAttribute('aria-label'))).toEqual(ORDERED_LABELS)
+    expect(columns.map((c) => c.getAttribute('aria-label'))).toEqual(
+      ORDERED_LABELS.map((label) => `${label}, 0 tickets`),
+    )
   })
 
   it('render_shouldPromptToCreateTeam_whenNoTeams', async () => {
@@ -175,6 +183,52 @@ describe('BoardPage', () => {
 
     expect(await screen.findByText(/create a team to start/i)).toBeInTheDocument()
     expect(screen.queryByTestId('board')).not.toBeInTheDocument()
+    expect(getBoardMock).not.toHaveBeenCalled()
+  })
+
+  // --- error paths ---
+
+  it('board_shouldRenderErrorThenRecover_whenBoardQueryFailsThenRetried', async () => {
+    getBoardMock
+      .mockRejectedValueOnce(new Error('boom'))
+      .mockResolvedValue(board({ new: [{ id: 'k1', title: 'Login broken' }] }))
+    const user = userEvent.setup()
+    renderPage()
+
+    expect(await screen.findByText(/could not load the board/i)).toBeInTheDocument()
+    expect(screen.queryByTestId('board')).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /try again/i }))
+
+    expect(await screen.findByTestId('board')).toBeInTheDocument()
+    expect(column('New').getByText('Login broken')).toBeInTheDocument()
+  })
+
+  it('board_shouldDisableRetryButton_whileRefetching', async () => {
+    // First load succeeds so the data stays cached; the invalidated refetch then errors while that
+    // data is retained, keeping the ErrorState (not LoadingState) mounted so its retry is observable.
+    // A final never-resolving fetch holds the retry in flight.
+    getBoardMock
+      .mockResolvedValueOnce(board({ new: [{ id: 'k1', title: 'Login broken' }] }))
+      .mockRejectedValueOnce(new Error('boom'))
+      .mockImplementationOnce(() => new Promise<BoardView>(() => {}))
+    const user = userEvent.setup()
+    const queryClient = renderPage()
+    await waitFor(() => expect(column('New').getByText('Login broken')).toBeInTheDocument())
+
+    await act(async () => {
+      await queryClient.invalidateQueries({ queryKey: ['board'] })
+    })
+    await user.click(await screen.findByRole('button', { name: /try again/i }))
+
+    await waitFor(() => expect(screen.getByRole('button', { name: /retrying/i })).toBeDisabled())
+  })
+
+  it('teams_shouldRenderErrorAndSkipBoardFetch_whenTeamsQueryFails', async () => {
+    listTeamsMock.mockRejectedValue(new Error('nope'))
+    renderPage()
+
+    expect(await screen.findByText(/could not load teams/i)).toBeInTheDocument()
     expect(getBoardMock).not.toHaveBeenCalled()
   })
 
@@ -214,20 +268,36 @@ describe('BoardPage', () => {
     )
   })
 
-  it('filter_shouldSendSearchTermAsQParam_afterDebounce', async () => {
-    const user = userEvent.setup()
+  it('search_shouldRequestFinalTermOnly_andNotIntermediatePrefixes', async () => {
     renderPage()
-    await screen.findByTestId('board')
+    const input = await screen.findByRole('textbox', { name: /search tickets/i })
+    await waitFor(() => expect(getBoardMock).toHaveBeenCalled())
+    getBoardMock.mockClear()
 
-    await user.type(screen.getByRole('textbox', { name: /search tickets/i }), 'login')
+    // Fake the clock for the debounce window so intermediate keystrokes can't fire a request. Drive
+    // the keystrokes with fireEvent (synchronous) — userEvent's own timing fights a fake clock.
+    vi.useFakeTimers()
+    fireEvent.change(input, { target: { value: 'a' } })
+    fireEvent.change(input, { target: { value: 'ab' } })
+    fireEvent.change(input, { target: { value: 'abc' } })
+    // Nothing fires while the debounce window is still open.
+    expect(getBoardMock).not.toHaveBeenCalled()
 
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(DEBOUNCE_MS)
+    })
+    vi.useRealTimers()
+
+    // Exactly one request, for the final term — never for the 'a'/'ab' prefixes.
     await waitFor(() =>
       expect(getBoardMock).toHaveBeenCalledWith(
         'a',
-        expect.objectContaining({ q: 'login' }),
+        expect.objectContaining({ q: 'abc' }),
         expect.anything(),
       ),
     )
+    const requestedQs = getBoardMock.mock.calls.map((call) => (call[1] as { q?: string }).q)
+    expect(requestedQs).toEqual(['abc'])
   })
 
   it('search_shouldKeepPreviousBoardVisibleWithoutLoadingFlash_whileRefetching', async () => {
@@ -343,6 +413,29 @@ describe('BoardPage', () => {
     await waitFor(() => expect(column('In progress').getByText('Login broken')).toBeInTheDocument())
     expect(column('New').queryByText('Login broken')).not.toBeInTheDocument()
     expect(patchTicketStateMock).toHaveBeenCalledWith('k1', 'in_progress')
+  })
+
+  it('drag_shouldInvalidateBoardTicketsAndMovedTicket_whenDropPersists', async () => {
+    getBoardMock.mockResolvedValue(board({ new: [{ id: 'k1', title: 'Login broken' }] }))
+    patchTicketStateMock.mockResolvedValue({})
+    const queryClient = renderPage()
+    await waitFor(() => expect(column('New').getByText('Login broken')).toBeInTheDocument())
+    const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries')
+
+    await act(async () => {
+      dnd.onDragEnd?.({
+        active: { id: 'k1', data: { current: { fromState: 'new' } } },
+        over: { id: 'in_progress' },
+      })
+      await Promise.resolve()
+    })
+
+    // onSettled invalidates the team's whole board (prefix), the ticket lists, and the moved ticket.
+    await waitFor(() => {
+      expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['board', 'a'] })
+      expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['tickets'] })
+      expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['ticket', 'k1'] })
+    })
   })
 
   it('drag_shouldRevertAndShowError_whenPatchRejected', async () => {

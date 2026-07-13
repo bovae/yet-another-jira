@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -87,10 +88,52 @@ class FixedWindowRateLimiterTest {
     }
 
     @Test
+    void checkAndIncrement_shouldReturnOneSecond_whenTtlZero() {
+        // TTL rounds down to 0 (sub-second remaining): retry in ~1s, and do NOT re-arm the window.
+        stubScriptReturns((long) LIMIT + 1);
+        when(stringRedisTemplate.getExpire(EXPECTED_KEY, TimeUnit.SECONDS)).thenReturn(0L);
+
+        RateLimitException ex = assertThrows(RateLimitException.class, () -> rateLimiter.checkAndIncrement(TEST_EMAIL));
+
+        assertEquals(1L, ex.getRetryAfterSeconds());
+        verify(stringRedisTemplate, never()).expire(any(), any());
+    }
+
+    @Test
+    void checkAndIncrement_shouldReturnZero_whenKeyAlreadyGone() {
+        // TTL -2: the key expired between the INCR and the TTL read — the window reset, so no wait.
+        stubScriptReturns((long) LIMIT + 1);
+        when(stringRedisTemplate.getExpire(EXPECTED_KEY, TimeUnit.SECONDS)).thenReturn(-2L);
+
+        RateLimitException ex = assertThrows(RateLimitException.class, () -> rateLimiter.checkAndIncrement(TEST_EMAIL));
+
+        assertEquals(0L, ex.getRetryAfterSeconds());
+        verify(stringRedisTemplate, never()).expire(any(), any());
+    }
+
+    @Test
+    void checkAndIncrement_shouldFallBackToWindow_whenTtlUnreadable() {
+        stubScriptReturns((long) LIMIT + 1);
+        when(stringRedisTemplate.getExpire(EXPECTED_KEY, TimeUnit.SECONDS)).thenReturn(null);
+
+        RateLimitException ex = assertThrows(RateLimitException.class, () -> rateLimiter.checkAndIncrement(TEST_EMAIL));
+
+        assertEquals(WINDOW.toSeconds(), ex.getRetryAfterSeconds());
+        verify(stringRedisTemplate, never()).expire(any(), any());
+    }
+
+    @Test
     void checkAndIncrement_shouldFailOpen_whenScriptReturnsNull() {
         stubScriptReturns(null);
 
         assertDoesNotThrow(() -> rateLimiter.checkAndIncrement(TEST_EMAIL));
+    }
+
+    @Test
+    void reset_shouldDeleteWindowKey() {
+        rateLimiter.reset(TEST_EMAIL);
+
+        verify(stringRedisTemplate).delete(EXPECTED_KEY);
     }
 
     @SuppressWarnings("unchecked")

@@ -14,17 +14,19 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 @Configuration
 public class ValkeyConfig {
 
-    static final Duration STARTUP_TIMEOUT = Duration.ofSeconds(5);
+    // Socket connect timeout, used when validating connectivity at startup. Distinct from the
+    // per-command timeout (yaj.valkey.command-timeout), which governs individual runtime operations.
+    static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(5);
 
     @Bean
     public LettuceConnectionFactory valkeyConnectionFactory(ValkeyProperties properties) {
         SocketOptions socketOptions =
-                SocketOptions.builder().connectTimeout(STARTUP_TIMEOUT).build();
+                SocketOptions.builder().connectTimeout(CONNECT_TIMEOUT).build();
         ClientOptions clientOptions =
                 ClientOptions.builder().socketOptions(socketOptions).build();
         LettuceClientConfiguration clientConfiguration = LettuceClientConfiguration.builder()
                 .clientOptions(clientOptions)
-                .commandTimeout(STARTUP_TIMEOUT)
+                .commandTimeout(properties.commandTimeout())
                 .build();
 
         RedisStandaloneConfiguration serverConfiguration =

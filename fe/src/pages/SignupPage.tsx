@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
-import { Link } from 'react-router'
+import { Link, Navigate } from 'react-router'
 import { ApiError, GENERIC_ERROR_MESSAGE, signup } from '@/api/auth'
+import { useAuth } from '@/auth/auth-context'
 import { AuthLayout } from '@/components/layout/AuthLayout'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -16,11 +17,17 @@ type Status = 'idle' | 'pending' | 'error' | 'success'
  * keeps the form and renders the backend problem `detail` so the user can correct and resubmit.
  */
 export function SignupPage() {
+  const { status: authStatus } = useAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [status, setStatus] = useState<Status>('idle')
   const [errorMessage, setErrorMessage] = useState('')
   const [registeredEmail, setRegisteredEmail] = useState('')
+
+  // Already signed in → skip signup and enter the app. After all hooks so order stays stable.
+  if (authStatus === 'authenticated') {
+    return <Navigate to="/" replace />
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()

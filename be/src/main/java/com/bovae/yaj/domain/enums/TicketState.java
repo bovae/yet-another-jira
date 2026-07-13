@@ -11,24 +11,19 @@ import org.springframework.lang.Nullable;
 
 @RequiredArgsConstructor
 public enum TicketState {
-    NEW("new", 1),
-    READY_FOR_IMPLEMENTATION("ready_for_implementation", 2),
-    IN_PROGRESS("in_progress", 3),
-    READY_FOR_ACCEPTANCE("ready_for_acceptance", 4),
-    DONE("done", 5);
+    NEW("new"),
+    READY_FOR_IMPLEMENTATION("ready_for_implementation"),
+    IN_PROGRESS("in_progress"),
+    READY_FOR_ACCEPTANCE("ready_for_acceptance"),
+    DONE("done");
 
     private static final Map<String, TicketState> BY_CODE =
             Arrays.stream(values()).collect(Collectors.toUnmodifiableMap(TicketState::code, Function.identity()));
 
     private final String code;
-    private final int position;
 
     public String code() {
         return code;
-    }
-
-    public int position() {
-        return position;
     }
 
     public static TicketState parse(@Nullable String code) {

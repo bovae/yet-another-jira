@@ -9,7 +9,6 @@ import com.bovae.yaj.domain.repository.UserRepository;
 import com.bovae.yaj.error.UnauthorizedException;
 import com.bovae.yaj.security.CurrentUserProvider;
 import com.bovae.yaj.web.dto.MeResponse;
-import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -23,7 +22,6 @@ class CurrentUserServiceTest {
 
     private static final UUID USER_ID = UUID.randomUUID();
     private static final String USER_EMAIL = "user@example.com";
-    private static final Instant FIXED_NOW = Instant.parse("2025-01-15T12:00:00Z");
 
     @Mock
     private CurrentUserProvider currentUserProvider;
@@ -70,16 +68,8 @@ class CurrentUserServiceTest {
         assertThrows(UnauthorizedException.class, () -> currentUserService.me());
     }
 
-    // --- soft-deleted user ---
-
-    @Test
-    void me_shouldThrowUnauthorized_whenUserSoftDeleted() {
-        User user = softDeletedUser();
-        when(currentUserProvider.requireCurrentUserId()).thenReturn(USER_ID);
-        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
-
-        assertThrows(UnauthorizedException.class, () -> currentUserService.me());
-    }
+    // Soft-deleted/missing users are now rejected upstream in JwtAuthenticationFilter (before any
+    // secured endpoint runs), so /me no longer re-checks deletedAt — see JwtAuthenticationFilterTest.
 
     // --- provider failure propagates ---
 
@@ -100,12 +90,6 @@ class CurrentUserServiceTest {
         user.setPasswordHash("$argon2id$hashed");
         user.setEmailVerified(emailVerified);
         user.setDeletedAt(null);
-        return user;
-    }
-
-    private User softDeletedUser() {
-        User user = activeUser(true);
-        user.setDeletedAt(FIXED_NOW.minusSeconds(86400));
         return user;
     }
 }

@@ -1,9 +1,9 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
 import { CommentThread } from './CommentThread'
 import { ApiError } from '@/api/problem'
+import { comment, renderWithClient } from '@/test/helpers'
 
 vi.mock('@/api/comments', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/api/comments')>()),
@@ -16,19 +16,8 @@ import { addComment, listComments } from '@/api/comments'
 const listCommentsMock = listComments as Mock
 const addCommentMock = addComment as Mock
 
-const ME = { id: 'u1', email: 'me@example.com' }
-
-function comment(id: string, authorId: string, body: string, createdAt: string) {
-  return { id, ticketId: 'k1', authorId, body, createdAt }
-}
-
 function renderThread() {
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-  render(
-    <QueryClientProvider client={queryClient}>
-      <CommentThread ticketId="k1" me={ME} />
-    </QueryClientProvider>,
-  )
+  return renderWithClient(<CommentThread ticketId="k1" />)
 }
 
 describe('CommentThread', () => {
@@ -40,18 +29,30 @@ describe('CommentThread', () => {
     vi.resetAllMocks()
   })
 
-  it('list_shouldRenderOldestFirstWithResolvedAuthors', async () => {
+  it('list_shouldRenderOldestFirstAndResolveAuthorEmailWithRawIdFallback', async () => {
     listCommentsMock.mockResolvedValue([
-      comment('c2', 'u2', 'newer', '2026-07-12T02:00:00Z'),
-      comment('c1', 'u1', 'older', '2026-07-12T01:00:00Z'),
+      comment({
+        id: 'c2',
+        authorId: 'u2',
+        authorEmail: null,
+        body: 'newer',
+        createdAt: '2026-07-12T02:00:00Z',
+      }),
+      comment({
+        id: 'c1',
+        authorId: 'u1',
+        authorEmail: 'ada@example.com',
+        body: 'older',
+        createdAt: '2026-07-12T01:00:00Z',
+      }),
     ])
     renderThread()
 
     const items = await screen.findAllByRole('listitem')
     expect(items[0]).toHaveTextContent('older')
     expect(items[1]).toHaveTextContent('newer')
-    // Own comment shows email; another user's shows the raw id.
-    expect(items[0]).toHaveTextContent('me@example.com')
+    // A resolved author shows the email; an unresolved one falls back to the raw id.
+    expect(items[0]).toHaveTextContent('ada@example.com')
     expect(items[1]).toHaveTextContent('u2')
   })
 
@@ -62,13 +63,10 @@ describe('CommentThread', () => {
   })
 
   it('add_shouldAppendCommentAndClearForm_whenSuccess', async () => {
-    listCommentsMock
-      .mockResolvedValueOnce([comment('c1', 'u1', 'older', '2026-07-12T01:00:00Z')])
-      .mockResolvedValue([
-        comment('c1', 'u1', 'older', '2026-07-12T01:00:00Z'),
-        comment('c2', 'u1', 'my new comment', '2026-07-12T03:00:00Z'),
-      ])
-    addCommentMock.mockResolvedValue(comment('c2', 'u1', 'my new comment', '2026-07-12T03:00:00Z'))
+    const older = comment({ id: 'c1', body: 'older', createdAt: '2026-07-12T01:00:00Z' })
+    const mine = comment({ id: 'c2', body: 'my new comment', createdAt: '2026-07-12T03:00:00Z' })
+    listCommentsMock.mockResolvedValueOnce([older]).mockResolvedValue([older, mine])
+    addCommentMock.mockResolvedValue(mine)
     const user = userEvent.setup()
     renderThread()
 

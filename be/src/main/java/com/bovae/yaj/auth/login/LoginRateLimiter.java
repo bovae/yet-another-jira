@@ -25,4 +25,8 @@ public class LoginRateLimiter {
     public void checkAndIncrement(String normalizedEmail) {
         delegate.checkAndIncrement(normalizedEmail);
     }
+
+    public void reset(String normalizedEmail) {
+        delegate.reset(normalizedEmail);
+    }
 }

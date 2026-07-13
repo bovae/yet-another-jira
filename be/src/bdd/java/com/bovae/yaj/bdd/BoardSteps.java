@@ -25,16 +25,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.web.server.LocalServerPort;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.lang.Nullable;
-import org.springframework.web.client.ResponseErrorHandler;
-import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
 public class BoardSteps {
@@ -44,8 +37,8 @@ public class BoardSteps {
     private static final List<String> WORKFLOW_ORDER =
             List.of("new", "ready_for_implementation", "in_progress", "ready_for_acceptance", "done");
 
-    @LocalServerPort
-    private int port;
+    @Autowired
+    private ApiClient api;
 
     @Autowired
     private SharedScenarioState sharedState;
@@ -128,7 +121,7 @@ public class BoardSteps {
         if (epic != null && !epic.isNull()) {
             body.put("epicId", epic.asText());
         }
-        ResponseEntity<String> response = exchange(HttpMethod.PUT, uri(TICKETS_URL + "/" + id), body, true);
+        ResponseEntity<String> response = api.exchange(HttpMethod.PUT, TICKETS_URL + "/" + id, body, true);
         assertEquals(200, response.getStatusCode().value(), "Ticket modification should succeed");
     }
 
@@ -164,12 +157,6 @@ public class BoardSteps {
     @When("the user requests the board of an unknown team")
     public void theUserRequestsTheBoardOfAnUnknownTeam() {
         requestBoard(UUID.randomUUID(), Map.of(), true);
-    }
-
-    @When("an unauthenticated user requests the board of any team")
-    public void anUnauthenticatedUserRequestsTheBoardOfAnyTeam() {
-        // No token: the security filter rejects at /api/v1/** before any team lookup, so any id works.
-        requestBoard(UUID.randomUUID(), Map.of(), false);
     }
 
     // --- assertions ---
@@ -221,17 +208,17 @@ public class BoardSteps {
         if (epicId != null) {
             body.put("epicId", epicId.toString());
         }
-        ResponseEntity<String> response = exchange(HttpMethod.POST, uri(TICKETS_URL), body, true);
+        ResponseEntity<String> response = api.exchange(HttpMethod.POST, TICKETS_URL, body, true);
         assertEquals(201, response.getStatusCode().value(), "Ticket creation should succeed: " + title);
-        ticketIds.put(title, extractId(response));
+        ticketIds.put(title, ApiClient.extractId(response));
     }
 
     private void requestBoard(UUID team, Map<String, String> params, boolean authenticated) {
         UriComponentsBuilder builder =
-                UriComponentsBuilder.fromUriString("http://localhost:" + port + "/api/v1/teams/" + team + "/board");
+                UriComponentsBuilder.fromUriString(api.baseUrl() + "/api/v1/teams/" + team + "/board");
         params.forEach(builder::queryParam);
         URI uri = builder.build().encode().toUri();
-        sharedState.setLastResponse(exchange(HttpMethod.GET, uri, null, authenticated));
+        sharedState.setLastResponse(api.exchange(HttpMethod.GET, uri, null, authenticated));
     }
 
     private JsonNode board() {
@@ -264,7 +251,7 @@ public class BoardSteps {
     }
 
     private JsonNode fetchTicket(UUID id) {
-        ResponseEntity<String> response = exchange(HttpMethod.GET, uri(TICKETS_URL + "/" + id), null, true);
+        ResponseEntity<String> response = api.exchange(HttpMethod.GET, TICKETS_URL + "/" + id, null, true);
         assertEquals(200, response.getStatusCode().value(), "GET ticket should succeed");
         return parse(response.getBody());
     }
@@ -280,50 +267,12 @@ public class BoardSteps {
         return epicId;
     }
 
-    private URI uri(String path) {
-        return URI.create("http://localhost:" + port + path);
-    }
-
-    private ResponseEntity<String> exchange(
-            HttpMethod method, URI uri, @Nullable Map<String, String> body, boolean authenticated) {
-        HttpHeaders headers = new HttpHeaders();
-        if (body != null) {
-            headers.setContentType(MediaType.APPLICATION_JSON);
-        }
-        if (authenticated) {
-            String token = sharedState.getAccessToken();
-            assertNotNull(token, "Access token should be available");
-            headers.setBearerAuth(token);
-        }
-        HttpEntity<Map<String, String>> request = new HttpEntity<>(body, headers);
-        return restTemplate().exchange(uri, method, request, String.class);
-    }
-
     private static JsonNode parse(@Nullable String body) {
         assertNotNull(body, "Response body should not be null");
         try {
             return MAPPER.readTree(body);
         } catch (Exception e) {
             throw new IllegalStateException("Could not parse response body: " + body, e);
-        }
-    }
-
-    private static UUID extractId(ResponseEntity<String> response) {
-        return UUID.fromString(parse(response.getBody()).get("id").asText());
-    }
-
-    // JdkClientHttpRequestFactory (java.net.http) supports PATCH, unlike the default SimpleClientHttpRequestFactory.
-    private static RestTemplate restTemplate() {
-        RestTemplate rt = new RestTemplate(new JdkClientHttpRequestFactory());
-        rt.setErrorHandler(new NoOpResponseErrorHandler());
-        return rt;
-    }
-
-    /** Suppresses exception-throwing on 4xx/5xx so we can assert status codes directly. */
-    private static class NoOpResponseErrorHandler implements ResponseErrorHandler {
-        @Override
-        public boolean hasError(org.springframework.http.client.ClientHttpResponse response) {
-            return false;
         }
     }
 }

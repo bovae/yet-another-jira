@@ -8,12 +8,16 @@ import com.bovae.yaj.error.RateLimitException;
 import com.bovae.yaj.error.UnauthorizedException;
 import com.bovae.yaj.error.ValidationException;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataAccessException;
+import org.springframework.dao.DataAccessResourceFailureException;
+import org.springframework.dao.QueryTimeoutException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.lang.Nullable;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -27,6 +31,18 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(NotFoundException.class)
     public ResponseEntity<Object> handleNotFound(NotFoundException ex, WebRequest request) {
         return domainProblem(HttpStatus.NOT_FOUND, "Not Found", ex, request);
+    }
+
+    /**
+     * A row vanished between load and flush (concurrent delete). The truthful answer is the same
+     * {@code 404} the request would have gotten had it lost the race at the pre-check.
+     */
+    @ExceptionHandler(ObjectOptimisticLockingFailureException.class)
+    public ResponseEntity<Object> handleVanishedRow(ObjectOptimisticLockingFailureException ex, WebRequest request) {
+        LOG.warn("Optimistic-lock failure: target row vanished before flush; translating to 404");
+        ProblemDetail body =
+                ProblemDetailFactory.create(HttpStatus.NOT_FOUND, "Not Found", "The requested resource was not found.");
+        return handleExceptionInternal(ex, body, new HttpHeaders(), HttpStatus.NOT_FOUND, request);
     }
 
     @ExceptionHandler(ConflictException.class)
@@ -61,6 +77,21 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         HttpHeaders headers = new HttpHeaders();
         headers.add(HttpHeaders.RETRY_AFTER, Long.toString(ex.getRetryAfterSeconds()));
         return handleExceptionInternal(ex, body, headers, HttpStatus.TOO_MANY_REQUESTS, request);
+    }
+
+    /**
+     * A backing data store (Postgres or Valkey) is unreachable or timing out mid-request. Return the
+     * same deliberate {@code 503} the JWT filter emits on a store outage, so the outage posture is
+     * uniform across every path rather than surfacing as a generic {@code 500}.
+     */
+    @ExceptionHandler({DataAccessResourceFailureException.class, QueryTimeoutException.class})
+    public ResponseEntity<Object> handleDataStoreUnavailable(DataAccessException ex, WebRequest request) {
+        LOG.warn("Backing data store unavailable during request processing; returning 503", ex);
+        ProblemDetail body = ProblemDetailFactory.create(
+                HttpStatus.SERVICE_UNAVAILABLE,
+                "Service Unavailable",
+                "The service is temporarily unavailable. Please retry shortly.");
+        return handleExceptionInternal(ex, body, new HttpHeaders(), HttpStatus.SERVICE_UNAVAILABLE, request);
     }
 
     /**

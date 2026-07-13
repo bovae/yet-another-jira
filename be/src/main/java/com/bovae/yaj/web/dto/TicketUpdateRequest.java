@@ -1,16 +1,15 @@
 package com.bovae.yaj.web.dto;
 
-import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Size;
 import java.util.UUID;
 import org.springframework.lang.Nullable;
 
-/** Payload for a full-replacement ticket update; an omitted {@code epicId} clears the epic reference. */
+/**
+ * Payload for a full-replacement ticket update; an omitted {@code epicId} clears the epic reference.
+ *
+ * <p>String fields carry no bean-validation annotations by design: {@code TicketService} is the single
+ * validation authority. Only {@code teamId} keeps {@code @NotNull} because the service assumes a
+ * non-null team reference.
+ */
 public record TicketUpdateRequest(
-        @NotNull UUID teamId,
-        @NotBlank String type,
-        @NotBlank String state,
-        @Nullable UUID epicId,
-        @NotBlank @Size(max = 200) String title,
-        @NotBlank @Size(max = 10000) String body) {}
+        @NotNull UUID teamId, String type, String state, @Nullable UUID epicId, String title, String body) {}

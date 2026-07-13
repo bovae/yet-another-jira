@@ -2,6 +2,7 @@ package com.bovae.yaj.config;
 
 import com.bovae.yaj.support.MdcTaskDecorator;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ThreadPoolExecutor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.annotation.EnableAsync;
@@ -22,6 +23,9 @@ public class AsyncConfig {
         executor.setQueueCapacity(100);
         executor.setThreadNamePrefix("verify-email-");
         executor.setTaskDecorator(new MdcTaskDecorator());
+        // Under saturation (pool + queue full), run the send on the calling thread rather than
+        // rejecting it after the transaction already committed — degrade to synchronous, don't drop.
+        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
         executor.initialize();
         return executor;
     }

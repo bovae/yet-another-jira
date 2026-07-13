@@ -31,6 +31,8 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.slf4j.MDC;
+import org.springframework.dao.DataAccessResourceFailureException;
+import org.springframework.dao.QueryTimeoutException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
@@ -38,6 +40,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
@@ -265,6 +268,45 @@ class GlobalExceptionHandlerTest {
         assertFalse(body.contains("ForbiddenException"), "response body must not leak exception type name");
     }
 
+    // --- vanished-row optimistic-lock failure → 404 ---
+
+    @Test
+    void handleVanishedRow_shouldReturn404ProblemJson_whenOptimisticLockFails() throws Exception {
+        MvcResult result = mockMvc.perform(
+                        get("/test/throw-optimistic-lock").header(CorrelationId.HEADER, TEST_CORRELATION_ID))
+                .andExpect(status().isNotFound())
+                .andExpect(content().contentTypeCompatibleWith(PROBLEM_JSON))
+                .andExpect(jsonPath("$.status").value(404))
+                .andExpect(jsonPath("$.title").value("Not Found"))
+                .andExpect(jsonPath("$.correlationId").value(TEST_CORRELATION_ID))
+                .andExpect(jsonPath("$.timestamp").isNotEmpty())
+                .andReturn();
+
+        String body = result.getResponse().getContentAsString();
+        assertFalse(
+                body.contains("ObjectOptimisticLockingFailureException"),
+                "response body must not leak the internal exception type");
+    }
+
+    // --- data store outage → 503 (uniform with the JWT filter) ---
+
+    @ParameterizedTest(name = "path={0} → 503 problem+json")
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"/test/throw-data-access", "/test/throw-query-timeout"})
+    void handleDataStoreUnavailable_shouldReturn503ProblemJson_whenStoreFails(String path) throws Exception {
+        MvcResult result = mockMvc.perform(get(path).header(CorrelationId.HEADER, TEST_CORRELATION_ID))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(content().contentTypeCompatibleWith(PROBLEM_JSON))
+                .andExpect(jsonPath("$.status").value(503))
+                .andExpect(jsonPath("$.title").value("Service Unavailable"))
+                .andExpect(jsonPath("$.correlationId").value(TEST_CORRELATION_ID))
+                .andExpect(jsonPath("$.timestamp").isNotEmpty())
+                .andReturn();
+
+        String body = result.getResponse().getContentAsString();
+        assertFalse(body.contains("SECRET"), "body must not leak infrastructure detail");
+        assertFalse(body.contains("Exception"), "body must not leak internal exception types");
+    }
+
     // --- Retry-After header on rate-limit ---
 
     @Test
@@ -362,6 +404,21 @@ class GlobalExceptionHandlerTest {
         @GetMapping("/test/throw-forbidden")
         public void throwForbidden() {
             throw new ForbiddenException("please verify your email address");
+        }
+
+        @GetMapping("/test/throw-optimistic-lock")
+        public void throwOptimisticLock() {
+            throw new ObjectOptimisticLockingFailureException(Object.class, "vanished-row-id");
+        }
+
+        @GetMapping("/test/throw-data-access")
+        public void throwDataAccess() {
+            throw new DataAccessResourceFailureException("SECRET connection to db refused");
+        }
+
+        @GetMapping("/test/throw-query-timeout")
+        public void throwQueryTimeout() {
+            throw new QueryTimeoutException("SECRET statement timed out");
         }
 
         @GetMapping("/test/return-404")

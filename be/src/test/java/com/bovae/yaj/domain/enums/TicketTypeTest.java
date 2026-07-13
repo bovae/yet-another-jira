@@ -1,6 +1,5 @@
 package com.bovae.yaj.domain.enums;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -16,13 +15,8 @@ class TicketTypeTest {
     @ParameterizedTest(name = "parse({0}.code()) should return {0}")
     @EnumSource(TicketType.class)
     void parse_shouldReturnOriginalConstant_whenGivenConstantCode(TicketType constant) {
+        // assertSame already proves the code round-trips, so a separate round-trip test is redundant.
         assertSame(constant, TicketType.parse(constant.code()));
-    }
-
-    @ParameterizedTest(name = "parse({0}.code()).code() should equal {0}.code()")
-    @EnumSource(TicketType.class)
-    void parse_shouldRoundTripCode_whenGivenConstantCode(TicketType constant) {
-        assertEquals(constant.code(), TicketType.parse(constant.code()).code());
     }
 
     @ParameterizedTest(name = "parse(\"{0}\") should throw ValidationException with required message")

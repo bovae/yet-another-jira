@@ -19,7 +19,6 @@ import java.util.Optional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.test.web.server.LocalServerPort;
-import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -37,9 +36,6 @@ public class SignupSteps {
     private VerificationTokenRepository verificationTokenRepository;
 
     @Autowired
-    private StringRedisTemplate stringRedisTemplate;
-
-    @Autowired
     private SharedScenarioState sharedState;
 
     private String email;
@@ -55,21 +51,7 @@ public class SignupSteps {
         } catch (com.icegreen.greenmail.store.FolderException e) {
             throw new RuntimeException("Failed to purge GreenMail mailboxes", e);
         }
-        // Clear Valkey rate-limit keys
-        var keys = stringRedisTemplate.keys("verif:resend:rl:*");
-        if (keys != null && !keys.isEmpty()) {
-            stringRedisTemplate.delete(keys);
-        }
-        // Clear login rate-limit keys
-        var loginRlKeys = stringRedisTemplate.keys("auth:login:rl:*");
-        if (loginRlKeys != null && !loginRlKeys.isEmpty()) {
-            stringRedisTemplate.delete(loginRlKeys);
-        }
-        // Clear JWT denylist keys
-        var denylistKeys = stringRedisTemplate.keys("auth:jwt:denylist:*");
-        if (denylistKeys != null && !denylistKeys.isEmpty()) {
-            stringRedisTemplate.delete(denylistKeys);
-        }
+        // Valkey rate-limit/denylist keys are purged globally by ValkeyCleanupHooks.
     }
 
     @Given("a new user with email {string} and password {string}")

@@ -17,4 +17,5 @@ public record SmtpProperties(
         @NotBlank String from,
         @NotNull Duration timeout,
         @Nullable String username,
-        @Nullable String password) {}
+        @Nullable String password,
+        boolean startTls) {}

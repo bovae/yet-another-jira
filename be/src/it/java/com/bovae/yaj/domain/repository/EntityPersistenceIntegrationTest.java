@@ -57,6 +57,10 @@ class EntityPersistenceIntegrationTest extends AbstractPostgresIntegrationTest {
         assertNotNull(reloaded.getId(), "DB-generated UUID id");
         assertNotNull(reloaded.getCreatedAt(), "DB-default created_at");
         assertNotNull(reloaded.getModifiedAt(), "DB-default modified_at");
+        assertEquals(
+                reloaded.getCreatedAt(),
+                reloaded.getModifiedAt(),
+                "fresh row: modified_at == created_at (single DB clock source)");
         assertNull(reloaded.getDeletedAt(), "deletedAt initially null");
         assertEquals("test@example.com", reloaded.getEmail());
         assertEquals(false, reloaded.isEmailVerified());
@@ -100,6 +104,10 @@ class EntityPersistenceIntegrationTest extends AbstractPostgresIntegrationTest {
         assertNotNull(reloaded.getId(), "DB-generated UUID id");
         assertNotNull(reloaded.getCreatedAt(), "DB-default created_at");
         assertNotNull(reloaded.getModifiedAt(), "DB-default modified_at");
+        assertEquals(
+                reloaded.getCreatedAt(),
+                reloaded.getModifiedAt(),
+                "fresh row: modified_at == created_at (single DB clock source)");
         assertEquals("team-alpha", reloaded.getName());
     }
 
@@ -170,6 +178,10 @@ class EntityPersistenceIntegrationTest extends AbstractPostgresIntegrationTest {
         assertNotNull(reloaded.getId(), "DB-generated UUID id");
         assertNotNull(reloaded.getCreatedAt(), "DB-default created_at");
         assertNotNull(reloaded.getModifiedAt(), "DB-default modified_at");
+        assertEquals(
+                reloaded.getCreatedAt(),
+                reloaded.getModifiedAt(),
+                "fresh row: modified_at == created_at (single DB clock source)");
         assertNull(reloaded.getDescription(), "description initially null");
         assertEquals(team.getId(), reloaded.getTeamId());
     }
@@ -212,6 +224,10 @@ class EntityPersistenceIntegrationTest extends AbstractPostgresIntegrationTest {
         assertNotNull(reloaded.getId(), "DB-generated UUID id");
         assertNotNull(reloaded.getCreatedAt(), "DB-default created_at");
         assertNotNull(reloaded.getModifiedAt(), "DB-default modified_at");
+        assertEquals(
+                reloaded.getCreatedAt(),
+                reloaded.getModifiedAt(),
+                "fresh row: modified_at == created_at (single DB clock source)");
         assertNull(reloaded.getEpicId(), "epicId initially null");
         assertEquals("bug", reloaded.getType());
         assertEquals("new", reloaded.getState());

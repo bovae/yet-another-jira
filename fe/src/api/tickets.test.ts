@@ -11,18 +11,7 @@ import {
   updateTicket,
 } from './tickets'
 import { ApiError } from './problem'
-
-function jsonResponse(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { 'Content-Type': 'application/json' },
-  })
-}
-
-/** RFC 9457 problem body — what the backend returns on failures. */
-function problemResponse(detail: string, status: number): Response {
-  return jsonResponse({ type: 'about:blank', title: 'Error', status, detail }, status)
-}
+import { jsonResponse, problemResponse } from '@/test/helpers'
 
 const TICKET = {
   id: 'k1',
@@ -33,6 +22,7 @@ const TICKET = {
   title: 'Login broken',
   body: 'Steps to reproduce…',
   createdBy: 'u1',
+  createdByEmail: null,
   createdAt: '2026-07-12T00:00:00Z',
   modifiedAt: '2026-07-12T00:00:00Z',
 }
@@ -112,7 +102,7 @@ describe('tickets API', () => {
   })
 
   it('getTicket_shouldThrowApiErrorWithStatus_whenNotFound', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(problemResponse('Ticket not found.', 404)))
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(problemResponse(404, 'Ticket not found.')))
 
     const error = await getTicket('nope').catch((e: unknown) => e)
 
@@ -121,7 +111,7 @@ describe('tickets API', () => {
   })
 
   it('createTicket_shouldPostFullBody_whenSuccess', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(TICKET, 201))
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(TICKET, { status: 201 }))
     vi.stubGlobal('fetch', fetchMock)
 
     const result = await createTicket(INPUT)
@@ -141,7 +131,7 @@ describe('tickets API', () => {
   })
 
   it('createTicket_shouldOmitEpicId_whenEmpty', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(TICKET, 201))
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(TICKET, { status: 201 }))
     vi.stubGlobal('fetch', fetchMock)
 
     await createTicket({ ...INPUT, epicId: '' })
@@ -151,7 +141,7 @@ describe('tickets API', () => {
   })
 
   it('createTicket_shouldThrowApiErrorWithDetail_whenValidationFails', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(problemResponse('Title is required.', 400)))
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(problemResponse(400, 'Title is required.')))
 
     const error = await createTicket({ ...INPUT, title: '' }).catch((e: unknown) => e)
 
@@ -186,7 +176,7 @@ describe('tickets API', () => {
   })
 
   it('patchTicketState_shouldThrowApiErrorWithStatus_whenRejected', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(problemResponse('Invalid state.', 400)))
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(problemResponse(400, 'Invalid state.')))
 
     const error = await patchTicketState('k1', 'nope').catch((e: unknown) => e)
 

@@ -6,15 +6,15 @@ Frontend comment thread on the ticket details view: render a ticket's comments c
 ## Requirements
 
 ### Requirement: Comment thread on ticket details
-The frontend SHALL render the ticket's comment thread on the details view, fetched via `GET /api/v1/tickets/{ticketId}/comments` and displayed chronologically oldest first, each comment showing its author and created-at (formatted from ISO-8601 UTC). The author SHALL render the current user's email when the `authorId` matches the authenticated user, otherwise the raw user id. The thread SHALL show the shared loading, empty, and error states independently of the ticket fields.
+The frontend SHALL render the ticket's comment thread on the details view, fetched via `GET /api/v1/tickets/{ticketId}/comments` and displayed chronologically oldest first, each comment showing its author and created-at (formatted from ISO-8601 UTC). The author SHALL render the email from the API's `authorEmail` field for every comment, regardless of who authored it. The thread SHALL show the shared loading, empty, and error states independently of the ticket fields.
 
 #### Scenario: Comments render oldest first
 - **WHEN** the ticket has several comments
 - **THEN** they render in `createdAt` ascending order with author and timestamp
 
-#### Scenario: Own comment shows email
-- **WHEN** a comment's `authorId` equals the authenticated user's id
-- **THEN** the author renders as the user's email
+#### Scenario: Any author shows email
+- **WHEN** a comment was authored by a different user than the one viewing it
+- **THEN** the author renders as that user's email, not a raw UUID
 
 #### Scenario: No comments yet
 - **WHEN** the ticket has no comments

@@ -11,8 +11,10 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.ToString;
 import org.hibernate.annotations.ColumnDefault;
+import org.hibernate.annotations.CurrentTimestamp;
 import org.hibernate.annotations.Generated;
-import org.hibernate.annotations.UpdateTimestamp;
+import org.hibernate.annotations.SourceType;
+import org.hibernate.generator.EventType;
 import org.springframework.lang.Nullable;
 
 @Entity
@@ -48,7 +50,11 @@ public class User {
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
-    @UpdateTimestamp
+    // DB clock (current_timestamp), same source as created_at's now() default, so a fresh row has
+    // modified_at == created_at instead of the old @UpdateTimestamp VM clock drifting from the DB.
+    @CurrentTimestamp(
+            event = {EventType.INSERT, EventType.UPDATE},
+            source = SourceType.DB)
     @Column(name = "modified_at", nullable = false)
     private Instant modifiedAt;
 }

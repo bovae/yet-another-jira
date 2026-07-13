@@ -116,15 +116,16 @@ class LogoutServiceTest {
         verifyNoInteractions(jwtService, tokenDenylist);
     }
 
-    // --- failure: bad-signature/expired token → UnauthorizedException ---
+    // --- idempotency: unparseable/expired token → no-op success (204), not 401 ---
 
     @Test
-    void logout_shouldThrowUnauthorized_whenTokenInvalid() {
+    void logout_shouldNoOp_whenTokenParseFails() {
+        // An expired or otherwise unparseable token can't be revoked; logout stays idempotent.
         when(bearerTokenExtractor.extract(AUTH_HEADER)).thenReturn(RAW_TOKEN);
         when(jwtService.parseForRevocation(RAW_TOKEN))
                 .thenThrow(new UnauthorizedException("Invalid or expired token."));
 
-        assertThrows(UnauthorizedException.class, () -> logoutService.logout(AUTH_HEADER));
+        logoutService.logout(AUTH_HEADER);
 
         verifyNoInteractions(tokenDenylist);
     }

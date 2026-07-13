@@ -9,14 +9,17 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.bovae.yaj.domain.model.Comment;
+import com.bovae.yaj.domain.model.User;
 import com.bovae.yaj.domain.repository.CommentRepository;
 import com.bovae.yaj.domain.repository.TicketRepository;
+import com.bovae.yaj.domain.repository.UserRepository;
 import com.bovae.yaj.error.NotFoundException;
 import com.bovae.yaj.error.ValidationException;
 import com.bovae.yaj.security.CurrentUserProvider;
 import com.bovae.yaj.web.dto.CommentResponse;
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -28,6 +31,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
 
 @ExtendWith(MockitoExtension.class)
 class CommentServiceTest {
@@ -35,6 +39,7 @@ class CommentServiceTest {
     private static final UUID TICKET_ID = UUID.fromString("33333333-3333-3333-3333-333333333333");
     private static final UUID COMMENT_ID = UUID.fromString("55555555-5555-5555-5555-555555555555");
     private static final UUID USER_ID = UUID.fromString("44444444-4444-4444-4444-444444444444");
+    private static final String USER_EMAIL = "author@example.com";
     private static final Instant CREATED_AT = Instant.parse("2025-01-15T10:00:00Z");
     private static final String TOO_LONG_BODY = "b".repeat(10001);
 
@@ -43,6 +48,9 @@ class CommentServiceTest {
 
     @Mock
     private TicketRepository ticketRepository;
+
+    @Mock
+    private UserRepository userRepository;
 
     @Mock
     private CurrentUserProvider currentUserProvider;
@@ -54,7 +62,7 @@ class CommentServiceTest {
 
     @BeforeEach
     void setUp() {
-        commentService = new CommentService(commentRepository, ticketRepository, currentUserProvider);
+        commentService = new CommentService(commentRepository, ticketRepository, userRepository, currentUserProvider);
     }
 
     // --- list ---
@@ -62,7 +70,7 @@ class CommentServiceTest {
     @Test
     void list_shouldReturnCommentsFromOrderedQuery_whenTicketExists() {
         when(ticketRepository.existsById(TICKET_ID)).thenReturn(true);
-        when(commentRepository.findByTicketIdOrderByCreatedAtAsc(TICKET_ID))
+        when(commentRepository.findByTicketIdOrderByCreatedAtAscIdAsc(TICKET_ID))
                 .thenReturn(List.of(existingComment("first"), existingComment("second")));
 
         List<CommentResponse> result = commentService.list(TICKET_ID);
@@ -70,7 +78,7 @@ class CommentServiceTest {
         assertEquals(2, result.size());
         assertEquals("first", result.get(0).body());
         assertEquals("second", result.get(1).body());
-        verify(commentRepository).findByTicketIdOrderByCreatedAtAsc(TICKET_ID);
+        verify(commentRepository).findByTicketIdOrderByCreatedAtAscIdAsc(TICKET_ID);
     }
 
     @Test
@@ -78,7 +86,7 @@ class CommentServiceTest {
         when(ticketRepository.existsById(TICKET_ID)).thenReturn(false);
 
         assertThrows(NotFoundException.class, () -> commentService.list(TICKET_ID));
-        verify(commentRepository, never()).findByTicketIdOrderByCreatedAtAsc(any());
+        verify(commentRepository, never()).findByTicketIdOrderByCreatedAtAscIdAsc(any());
     }
 
     // --- add ---
@@ -105,6 +113,43 @@ class CommentServiceTest {
         assertThrows(NotFoundException.class, () -> commentService.add(TICKET_ID, "body"));
         verify(commentRepository, never()).saveAndFlush(any());
         verifyNoInteractions(currentUserProvider);
+    }
+
+    @Test
+    void add_shouldTranslateToNotFound_whenTicketVanishesBeforeFlush() {
+        // ticket exists at the pre-check, then the FK-violating insert flush reports the parent is gone.
+        when(ticketRepository.existsById(TICKET_ID)).thenReturn(true);
+        when(currentUserProvider.requireCurrentUserId()).thenReturn(USER_ID);
+        when(commentRepository.saveAndFlush(any(Comment.class)))
+                .thenThrow(new DataIntegrityViolationException("fk_ticket"));
+
+        assertThrows(NotFoundException.class, () -> commentService.add(TICKET_ID, "body"));
+    }
+
+    @Test
+    void add_shouldResolveAuthorEmail_whenAuthorExists() {
+        when(ticketRepository.existsById(TICKET_ID)).thenReturn(true);
+        when(currentUserProvider.requireCurrentUserId()).thenReturn(USER_ID);
+        when(commentRepository.saveAndFlush(any(Comment.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(userWithEmail(USER_ID, USER_EMAIL)));
+
+        assertEquals(USER_EMAIL, commentService.add(TICKET_ID, "Looks good").authorEmail());
+    }
+
+    @Test
+    void list_shouldResolveEmailsWithoutPerRowQueries() {
+        when(ticketRepository.existsById(TICKET_ID)).thenReturn(true);
+        when(commentRepository.findByTicketIdOrderByCreatedAtAscIdAsc(TICKET_ID))
+                .thenReturn(List.of(existingComment("first"), existingComment("second")));
+        when(userRepository.findAllById(List.of(USER_ID))).thenReturn(List.of(userWithEmail(USER_ID, USER_EMAIL)));
+
+        List<CommentResponse> result = commentService.list(TICKET_ID);
+
+        assertEquals(USER_EMAIL, result.get(0).authorEmail());
+        assertEquals(USER_EMAIL, result.get(1).authorEmail());
+        // Batched: one findAllById over the distinct author id, never a per-row findById.
+        verify(userRepository).findAllById(List.of(USER_ID));
+        verify(userRepository, never()).findById(any());
     }
 
     @ParameterizedTest(name = "blank body [{0}] -> ValidationException")
@@ -137,5 +182,12 @@ class CommentServiceTest {
         comment.setBody(body);
         comment.setCreatedAt(CREATED_AT);
         return comment;
+    }
+
+    private static User userWithEmail(UUID id, String email) {
+        User user = new User();
+        user.setId(id);
+        user.setEmail(email);
+        return user;
     }
 }

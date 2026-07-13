@@ -10,6 +10,8 @@ import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 
@@ -26,39 +28,16 @@ class LookupQueryIntegrationTest extends AbstractPostgresIntegrationTest {
 
     // --- findByEmail citext ---
 
-    @Test
-    void findByEmail_shouldReturnUser_whenQueriedWithLowercase() {
+    @ParameterizedTest(name = "citext lookup finds user when queried as \"{0}\"")
+    @ValueSource(strings = {"test@example.com", "TEST@EXAMPLE.COM", "Test@Example.COM"})
+    void findByEmail_shouldReturnUser_whenQueriedInAnyCase(String queryEmail) {
         User user = persistUser("Test@Example.COM");
         tem.flush();
         tem.clear();
 
-        Optional<User> found = userRepository.findByEmail("test@example.com");
+        Optional<User> found = userRepository.findByEmail(queryEmail);
 
-        assertTrue(found.isPresent(), "citext lookup with lowercase should find user");
-        assertEquals(user.getId(), found.get().getId());
-    }
-
-    @Test
-    void findByEmail_shouldReturnUser_whenQueriedWithUppercase() {
-        User user = persistUser("Test@Example.COM");
-        tem.flush();
-        tem.clear();
-
-        Optional<User> found = userRepository.findByEmail("TEST@EXAMPLE.COM");
-
-        assertTrue(found.isPresent(), "citext lookup with uppercase should find user");
-        assertEquals(user.getId(), found.get().getId());
-    }
-
-    @Test
-    void findByEmail_shouldReturnUser_whenQueriedWithOriginalCase() {
-        User user = persistUser("Test@Example.COM");
-        tem.flush();
-        tem.clear();
-
-        Optional<User> found = userRepository.findByEmail("Test@Example.COM");
-
-        assertTrue(found.isPresent(), "citext lookup with original case should find user");
+        assertTrue(found.isPresent(), "citext lookup should be case-insensitive for: " + queryEmail);
         assertEquals(user.getId(), found.get().getId());
     }
 

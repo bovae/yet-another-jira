@@ -54,7 +54,7 @@ public class FixedWindowRateLimiter {
     }
 
     public void checkAndIncrement(String normalizedEmail) {
-        String key = keyPrefix + tokenHasher.hash(normalizedEmail.toLowerCase(Locale.ROOT));
+        String key = key(normalizedEmail);
         Long count = stringRedisTemplate.execute(INCREMENT_AND_EXPIRE, List.of(key), String.valueOf(window.toMillis()));
 
         // Fail open on a null reply (store hiccup) rather than block a legitimate request.
@@ -63,12 +63,40 @@ public class FixedWindowRateLimiter {
         }
     }
 
+    /** Clears the window for a caller — e.g. after a successful login, so its attempts stop counting. */
+    public void reset(String normalizedEmail) {
+        stringRedisTemplate.delete(key(normalizedEmail));
+    }
+
+    private String key(String normalizedEmail) {
+        return keyPrefix + tokenHasher.hash(normalizedEmail.toLowerCase(Locale.ROOT));
+    }
+
+    /**
+     * Retry-After hint from the key's remaining TTL. Only TTL {@code -1} (key present but lost its TTL)
+     * re-arms a full window — re-arming on {@code -2}/{@code 0} would relock a caller whose window has
+     * already lapsed. Redis {@code getExpire} semantics: {@code >0} seconds remaining, {@code 0} expiry
+     * imminent (sub-second), {@code -1} no TTL, {@code -2} key gone.
+     */
     private long retryAfterSeconds(String key) {
         Long ttl = stringRedisTemplate.getExpire(key, TimeUnit.SECONDS);
-        if (ttl != null && ttl > 0) {
+        if (ttl == null) {
+            // Store hiccup: TTL unreadable — fall back to the full window as a safe upper bound.
+            return window.toSeconds();
+        }
+        if (ttl > 0) {
             return ttl;
         }
-        stringRedisTemplate.expire(key, window);
-        return window.toSeconds();
+        if (ttl == 0) {
+            // Sub-second remaining rounds to 0; tell the caller to retry in ~1s.
+            return 1;
+        }
+        if (ttl == -1) {
+            // Key exists without a TTL (shouldn't happen with the atomic script) — heal it.
+            stringRedisTemplate.expire(key, window);
+            return window.toSeconds();
+        }
+        // ttl == -2: key already gone, the window has reset — no wait needed.
+        return 0;
     }
 }

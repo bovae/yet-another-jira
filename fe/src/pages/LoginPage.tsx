@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { Link, useLocation, useNavigate } from 'react-router'
+import { Link, Navigate, useLocation, useNavigate } from 'react-router'
 import { ApiError, GENERIC_ERROR_MESSAGE } from '@/api/auth'
 import { useAuth } from '@/auth/auth-context'
 import { ResendVerification } from '@/components/auth/ResendVerification'
@@ -21,7 +21,7 @@ interface FromState {
  * problem `detail` on failure; a `403` (unverified account) additionally reveals the resend action.
  */
 export function LoginPage() {
-  const { login } = useAuth()
+  const { status: authStatus, login } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const from = (location.state as FromState | null)?.from?.pathname ?? '/'
@@ -31,6 +31,12 @@ export function LoginPage() {
   const [status, setStatus] = useState<Status>('idle')
   const [errorMessage, setErrorMessage] = useState('')
   const [unverified, setUnverified] = useState(false)
+
+  // Already signed in → the login screen has nothing to do; send them to the app. Placed after all
+  // hooks so the early return never changes the hook call order.
+  if (authStatus === 'authenticated') {
+    return <Navigate to="/" replace />
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
