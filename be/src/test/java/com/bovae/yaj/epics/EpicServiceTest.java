@@ -17,7 +17,6 @@ import com.bovae.yaj.domain.repository.TicketRepository;
 import com.bovae.yaj.error.ConflictException;
 import com.bovae.yaj.error.NotFoundException;
 import com.bovae.yaj.error.ValidationException;
-import com.bovae.yaj.web.dto.EpicResponse;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;

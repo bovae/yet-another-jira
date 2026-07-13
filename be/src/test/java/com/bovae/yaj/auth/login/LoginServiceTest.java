@@ -20,8 +20,6 @@ import com.bovae.yaj.error.ForbiddenException;
 import com.bovae.yaj.error.RateLimitException;
 import com.bovae.yaj.error.UnauthorizedException;
 import com.bovae.yaj.error.ValidationException;
-import com.bovae.yaj.web.dto.LoginRequest;
-import com.bovae.yaj.web.dto.LoginResponse;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Optional;

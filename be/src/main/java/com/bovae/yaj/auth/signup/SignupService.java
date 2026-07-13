@@ -6,8 +6,6 @@ import com.bovae.yaj.domain.model.User;
 import com.bovae.yaj.domain.repository.UserRepository;
 import com.bovae.yaj.error.ConflictException;
 import com.bovae.yaj.error.ValidationException;
-import com.bovae.yaj.web.dto.SignupRequest;
-import com.bovae.yaj.web.dto.SignupResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;

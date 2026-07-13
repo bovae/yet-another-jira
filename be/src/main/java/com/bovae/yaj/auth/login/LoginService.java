@@ -8,8 +8,6 @@ import com.bovae.yaj.error.ForbiddenException;
 import com.bovae.yaj.error.UnauthorizedException;
 import com.bovae.yaj.error.ValidationException;
 import com.bovae.yaj.support.UUIDUtils;
-import com.bovae.yaj.web.dto.LoginRequest;
-import com.bovae.yaj.web.dto.LoginResponse;
 import java.util.Objects;
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;

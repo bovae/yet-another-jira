@@ -17,8 +17,6 @@ import com.bovae.yaj.domain.model.User;
 import com.bovae.yaj.domain.repository.UserRepository;
 import com.bovae.yaj.error.ConflictException;
 import com.bovae.yaj.error.ValidationException;
-import com.bovae.yaj.web.dto.SignupRequest;
-import com.bovae.yaj.web.dto.SignupResponse;
 import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;

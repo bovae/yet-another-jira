@@ -19,7 +19,6 @@ import com.bovae.yaj.domain.repository.UserRepository;
 import com.bovae.yaj.error.NotFoundException;
 import com.bovae.yaj.error.ValidationException;
 import com.bovae.yaj.security.CurrentUserProvider;
-import com.bovae.yaj.web.dto.TicketResponse;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
