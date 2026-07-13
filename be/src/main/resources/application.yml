@@ -1,0 +1,91 @@
+spring:
+  application:
+    name: yet-another-jira-backend
+
+  datasource:
+    url: ${YAJ_DATASOURCE_URL}
+    username: ${YAJ_DATASOURCE_USERNAME}
+    password: ${YAJ_DATASOURCE_PASSWORD}
+
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+
+  # Disable static resource mappings so unknown routes raise NoHandlerFoundException.
+  web:
+    resources:
+      add-mappings: false
+
+  # RFC 9457 problem details: framework exceptions become ProblemDetail bodies via
+  # GlobalProblemHandler instead of falling through to BasicErrorController.
+  mvc:
+    problemdetails:
+      enabled: true
+
+  liquibase:
+    change-log: classpath:db/changelog/db.changelog-master.yaml
+    contexts: ${YAJ_LIQUIBASE_CONTEXTS:prod}
+
+# Honour X-Forwarded-* from the nginx proxy so generated absolute URLs (e.g. Location headers on
+# 201s) reflect the external scheme/host/port the client used, not the container's internal one.
+server:
+  forward-headers-strategy: framework
+
+yaj:
+  signup:
+    min-password-length: 8
+    max-password-length: 128
+    min-email-length: 6
+    max-email-length: 254
+  valkey:
+    host: ${YAJ_VALKEY_HOST}
+    port: ${YAJ_VALKEY_PORT}
+    command-timeout: ${YAJ_VALKEY_COMMAND_TIMEOUT:1s}
+  cors:
+    allowed-origins: ${YAJ_CORS_ALLOWED_ORIGINS}
+    allowed-methods: GET,POST,PUT,PATCH,DELETE,OPTIONS
+    allowed-headers: "*"
+  jwt:
+    secret: ${YAJ_JWT_SECRET}
+    token-ttl: 1h
+    login-rate-limit: 5
+    login-rate-window: 15m
+  verification:
+    token-ttl: 1h
+    link-base-url: ${YAJ_VERIFICATION_LINK_BASE_URL}
+    result-redirect-url: ${YAJ_VERIFICATION_REDIRECT_URL}
+    result-error-redirect-url: ${YAJ_VERIFICATION_ERROR_REDIRECT_URL}
+    resend-rate-limit: 5
+    resend-rate-window: 15m
+  mail:
+    host: ${YAJ_SMTP_HOST}
+    port: ${YAJ_SMTP_PORT}
+    from: ${YAJ_SMTP_FROM:no-reply@yet-another-jira.local}
+    timeout: ${YAJ_SMTP_TIMEOUT:5s}
+    username: ${YAJ_SMTP_USERNAME:}
+    password: ${YAJ_SMTP_PASSWORD:}
+    start-tls: ${YAJ_SMTP_STARTTLS:false}
+
+logging:
+  pattern:
+    level: "%5p [%X{correlationId}]"
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: when-authorized
+      probes:
+        enabled: true
+      group:
+        readiness:
+          include: readinessState,db,redis
+        liveness:
+          include: livenessState
+  info:
+    env:
+      enabled: true

@@ -1,0 +1,84 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0001-extensions
+      author: bovae
+      changes:
+        - sqlFile:
+            path: db/changelog/sql/0001-extensions.sql
+            relativeToChangelogFile: false
+            splitStatements: true
+            endDelimiter: ";"
+  - changeSet:
+      id: 0002-lookup-tables
+      author: bovae
+      changes:
+        - sqlFile:
+            path: db/changelog/sql/0002-lookup-tables.sql
+            relativeToChangelogFile: false
+            splitStatements: true
+            endDelimiter: ";"
+  - changeSet:
+      id: 0003-users
+      author: bovae
+      changes:
+        - sqlFile:
+            path: db/changelog/sql/0003-users.sql
+            relativeToChangelogFile: false
+            splitStatements: true
+            endDelimiter: ";"
+  - changeSet:
+      id: 0004-verification-tokens
+      author: bovae
+      changes:
+        - sqlFile:
+            path: db/changelog/sql/0004-verification-tokens.sql
+            relativeToChangelogFile: false
+            splitStatements: true
+            endDelimiter: ";"
+  - changeSet:
+      id: 0005-teams
+      author: bovae
+      changes:
+        - sqlFile:
+            path: db/changelog/sql/0005-teams.sql
+            relativeToChangelogFile: false
+            splitStatements: true
+            endDelimiter: ";"
+  - changeSet:
+      id: 0006-epics
+      author: bovae
+      changes:
+        - sqlFile:
+            path: db/changelog/sql/0006-epics.sql
+            relativeToChangelogFile: false
+            splitStatements: true
+            endDelimiter: ";"
+  - changeSet:
+      id: 0007-tickets
+      author: bovae
+      changes:
+        - sqlFile:
+            path: db/changelog/sql/0007-tickets.sql
+            relativeToChangelogFile: false
+            splitStatements: true
+            endDelimiter: ";"
+  - changeSet:
+      id: 0008-comments
+      author: bovae
+      changes:
+        - sqlFile:
+            path: db/changelog/sql/0008-comments.sql
+            relativeToChangelogFile: false
+            splitStatements: true
+            endDelimiter: ";"
+  # Local-only demo seed
+  - changeSet:
+      id: 0009-local-seed-data
+      author: bovae
+      contextFilter: local
+      changes:
+        - sqlFile:
+            path: db/changelog/sql/0009-local-seed-data.sql
+            relativeToChangelogFile: false
+            splitStatements: true
+            endDelimiter: ";"

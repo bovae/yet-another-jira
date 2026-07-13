@@ -1,0 +1,53 @@
+# fe-design-primitives
+
+## Purpose
+Frontend design primitives: shadcn/ui components bridged onto the `DESIGN.md` design tokens, the authenticated app shell with header user menu, and reusable async-state (loading/empty/error) components shared across screens.
+
+## Requirements
+
+### Requirement: shadcn/ui primitives styled by DESIGN.md tokens
+The frontend SHALL integrate shadcn/ui as the source of accessible interactive primitives. shadcn's semantic CSS variables (`--background`, `--foreground`, `--primary`, `--border`, `--ring`, `--radius`, and related) MUST be bridged onto the `DESIGN.md` tokens defined in `fe/src/index.css`, so shadcn components render with the project design language despite the stock Tailwind palette reset.
+
+#### Scenario: Bridged primitive renders styled
+- **WHEN** a shadcn primitive (e.g. DropdownMenu) is rendered
+- **THEN** its surfaces, text, borders, and focus ring use `DESIGN.md` token values, not browser defaults or invisible/unstyled output
+
+### Requirement: App shell with header user menu
+Authenticated screens SHALL render inside an app shell with a header containing navigation and a collapsed user menu built on the shadcn DropdownMenu primitive. The menu SHALL show the current user's email and a **Log out** action wired to the session logout.
+
+#### Scenario: User menu opens
+- **WHEN** an authenticated user activates the header user menu
+- **THEN** a dropdown opens showing the user's email and a Log out item
+
+#### Scenario: Log out fires
+- **WHEN** the user selects Log out from the menu
+- **THEN** the logout action runs and the user lands on `/login`
+
+### Requirement: Reusable async-state components
+The frontend SHALL provide reusable loading, empty, and error state components (error with message and optional retry), built from `DESIGN.md` token utilities, for use by all screens (§11 usability).
+
+#### Scenario: Loading state
+- **WHEN** a screen is fetching data
+- **THEN** the shared loading component renders
+
+#### Scenario: Error state with retry
+- **WHEN** a fetch fails and a retry handler is provided
+- **THEN** the shared error component renders the message and a retry control that re-triggers the fetch
+
+#### Scenario: Empty state
+- **WHEN** a fetch succeeds with no items
+- **THEN** the shared empty component renders a descriptive message
+
+### Requirement: Modal overlays dim the underlying page
+Modal primitives (Dialog, AlertDialog) SHALL render a backdrop overlay that visibly darkens the page content behind the modal, using a DESIGN.md token color at partial opacity — never a stock-palette utility that the Tailwind palette reset resolves to nothing.
+
+#### Scenario: Open dialog darkens the background
+- **WHEN** any dialog or alert dialog opens
+- **THEN** the page behind it is visibly darkened by a semi-transparent backdrop, and the backdrop disappears when the modal closes
+
+### Requirement: Destructive actions meet contrast
+Destructive controls (e.g. the button `destructive` variant) SHALL pair the error surface color with a foreground token that meets WCAG AA contrast (≥ 4.5:1), using bridged DESIGN.md tokens — never a stock-palette utility that the Tailwind palette reset resolves to nothing.
+
+#### Scenario: Delete button is readable
+- **WHEN** a destructive button (e.g. "Delete" in a confirmation dialog) renders
+- **THEN** its text color resolves to a bridged token value with at least 4.5:1 contrast against the button surface

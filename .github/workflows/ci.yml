@@ -1,0 +1,193 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [develop, main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  be-build:
+    name: "BE · Build"
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: be
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: corretto
+          java-version: "21"
+          cache: maven
+      - name: Compile backend
+        run: ./mvnw compile -DskipTests -Derrorprone.skip -B
+
+  be-lint:
+    name: "BE · Lint"
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: be
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: corretto
+          java-version: "21"
+          cache: maven
+      - name: Spotless check + Error Prone
+        run: ./mvnw spotless:check compile -B
+
+  be-test:
+    name: "BE · Test"
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: be
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: corretto
+          java-version: "21"
+          cache: maven
+      - name: Run tests with JaCoCo merge and coverage check
+        run: ./mvnw verify -Pbdd,it -Derrorprone.skip -Dspotless.check.skip -B
+      - name: Publish test report
+        if: always()
+        uses: mikepenz/action-junit-report@v4
+        with:
+          report_paths: be/target/surefire-reports/TEST-*.xml
+          check_name: "BE Test Report"
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: be-coverage-report
+          path: be/target/jacoco.exec
+          retention-days: 30
+
+  fe-build:
+    name: "FE · Build"
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: fe
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: fe/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Build frontend
+        run: npm run build
+
+  fe-lint:
+    name: "FE · Lint"
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: fe
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: fe/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Run ESLint
+        run: npm run lint
+      - name: Run Prettier check
+        run: npx prettier --check .
+
+  fe-test:
+    name: "FE · Test"
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: fe
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: fe/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Run Vitest
+        run: npm run test
+      - name: Publish test report
+        if: always()
+        uses: mikepenz/action-junit-report@v4
+        with:
+          report_paths: fe/test-results/vitest-junit.xml
+          check_name: "FE Test Report"
+
+  fe-e2e:
+    name: "FE · E2E"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: fe/package-lock.json
+      # buildx + the CI overlay let the image builds reuse a GitHub Actions layer cache; mailpit is
+      # always in the stack now, so no --profile flag.
+      - uses: docker/setup-buildx-action@v3
+      - name: Start full stack
+        run: docker compose -f docker-compose.yml -f docker-compose.ci.yml up --build --detach
+        env:
+          COMPOSE_BAKE: "true"
+      - name: Wait for the SPA-to-API path to be ready
+        run: |
+          for i in $(seq 1 60); do
+            if curl -fsS http://localhost:8081/ >/dev/null 2>&1; then
+              echo "stack ready"; exit 0
+            fi
+            echo "waiting for stack ($i)..."; sleep 5
+          done
+          echo "stack did not become ready in time"; docker compose logs; exit 1
+      - name: Install dependencies
+        run: npm ci
+        working-directory: fe
+      - name: Resolve Playwright version
+        id: pw
+        working-directory: fe
+        run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ms-playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+        working-directory: fe
+      - name: Run Playwright smoke test
+        run: npx playwright test
+        working-directory: fe
+        env:
+          PLAYWRIGHT_BASE_URL: http://localhost:8081
+          MAILPIT_URL: http://localhost:8025
+      - name: Publish E2E report
+        if: always()
+        uses: mikepenz/action-junit-report@v4
+        with:
+          report_paths: fe/test-results/playwright-junit.xml
+          check_name: "FE E2E Report"
+      - name: Dump compose logs on failure
+        if: failure()
+        run: docker compose logs
+      - name: Tear down
+        if: always()
+        run: docker compose -f docker-compose.yml -f docker-compose.ci.yml down --volumes

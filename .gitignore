@@ -1,0 +1,50 @@
+# --- Java / Maven (be) ---
+target/
+*.class
+*.jar
+*.war
+*.ear
+*.log
+hs_err_pid*
+replay_pid*
+# Maven wrapper: keep the wrapper scripts/properties, ignore the downloaded jar
+.mvn/wrapper/maven-wrapper.jar
+
+# --- Node / Vite (fe) ---
+node_modules/
+dist/
+dist-ssr/
+.vite/
+coverage/
+*.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# --- Test / coverage reports ---
+jacoco*.exec
+*.lcov
+.playwright-mcp/
+playwright-report/
+test-results/
+blob-report/
+.nyc_output/
+
+# --- Environment / secrets ---
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# --- IDE / editor ---
+.idea/
+*.iml
+.vscode/
+*.swp
+*.swo
+
+# --- OS cruft ---
+.DS_Store
+Thumbs.db
