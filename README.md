@@ -52,23 +52,29 @@ file at the repository root.
 
 ### Backend Environment Variables
 
-| Variable                              | Purpose                                       | Default in Compose                                           |
-|---------------------------------------|-----------------------------------------------|--------------------------------------------------------------|
-| `YAJ_DATASOURCE_URL`                  | JDBC connection URL for PostgreSQL            | `jdbc:postgresql://postgres:5432/yaj?stringtype=unspecified` |
-| `YAJ_DATASOURCE_USERNAME`             | Database username                             | `yaj`                                                        |
-| `YAJ_DATASOURCE_PASSWORD`             | Database password                             | `yaj`                                                        |
-| `YAJ_VALKEY_HOST`                     | Hostname of the Valkey instance               | `valkey`                                                     |
-| `YAJ_VALKEY_PORT`                     | Port of the Valkey instance                   | `6379`                                                       |
-| `YAJ_CORS_ALLOWED_ORIGINS`            | Comma-separated CORS allowed origins          | `http://localhost:8081`                                      |
-| `YAJ_SMTP_HOST`                       | SMTP server hostname                          | `mailpit`                                                    |
-| `YAJ_SMTP_PORT`                       | SMTP server port                              | `1025`                                                       |
-| `YAJ_SMTP_FROM`                       | Sender address for outgoing emails            | `no-reply@yet-another-jira.local`                            |
-| `YAJ_SMTP_USERNAME`                   | SMTP auth username (empty for local dev)      | *(empty)*                                                    |
-| `YAJ_SMTP_PASSWORD`                   | SMTP auth password (empty for local dev)      | *(empty)*                                                    |
-| `YAJ_VERIFICATION_LINK_BASE_URL`      | Base URL for email verification links         | `http://localhost:8081/verify`                               |
-| `YAJ_VERIFICATION_REDIRECT_URL`       | Redirect target after successful verification | `http://localhost:8081/login`                                |
-| `YAJ_VERIFICATION_ERROR_REDIRECT_URL` | Redirect target after failed verification     | `http://localhost:8081/verify-error`                         |
-| `YAJ_JWT_SECRET`                      | HMAC-SHA256 signing key for JWTs (≥ 32 chars) | `change-me-in-production-this-is-only-for-local-dev`         |
+| Variable                              | Purpose                                                  | Default in Compose                                           |
+|---------------------------------------|----------------------------------------------------------|--------------------------------------------------------------|
+| `YAJ_DATASOURCE_URL`                  | JDBC connection URL for PostgreSQL                       | `jdbc:postgresql://postgres:5432/yaj?stringtype=unspecified` |
+| `YAJ_DATASOURCE_USERNAME`             | Database username                                        | `yaj`                                                        |
+| `YAJ_DATASOURCE_PASSWORD`             | Database password                                        | `yaj`                                                        |
+| `YAJ_VALKEY_HOST`                     | Hostname of the Valkey instance                          | `valkey`                                                     |
+| `YAJ_VALKEY_PORT`                     | Port of the Valkey instance                              | `6379`                                                       |
+| `YAJ_CORS_ALLOWED_ORIGINS`            | Comma-separated CORS allowed origins                     | `http://localhost:8081`                                      |
+| `YAJ_SMTP_HOST`                       | SMTP server hostname                                     | `mailpit`                                                    |
+| `YAJ_SMTP_PORT`                       | SMTP server port                                         | `1025`                                                       |
+| `YAJ_SMTP_FROM`                       | Sender address for outgoing emails                       | `no-reply@yet-another-jira.local`                            |
+| `YAJ_SMTP_USERNAME`                   | SMTP auth username (empty for local dev)                 | *(empty)*                                                    |
+| `YAJ_SMTP_PASSWORD`                   | SMTP auth password (empty for local dev)                 | *(empty)*                                                    |
+| `YAJ_VERIFICATION_LINK_BASE_URL`      | Base URL for email verification links                    | `http://localhost:8081/verify`                               |
+| `YAJ_VERIFICATION_REDIRECT_URL`       | Redirect target after successful verification            | `http://localhost:8081/login`                                |
+| `YAJ_VERIFICATION_ERROR_REDIRECT_URL` | Redirect target after failed verification                | `http://localhost:8081/verify-error`                         |
+| `YAJ_JWT_SECRET`                      | HMAC-SHA256 signing key for JWTs (≥ 32 chars)            | `change-me-in-production-this-is-only-for-local-dev`         |
+| `YAJ_LIQUIBASE_CONTEXTS`              | Active Liquibase contexts; `local` enables the demo seed | `local` (unset elsewhere → defaults to `prod`, seed skipped) |
+
+> **Local demo seed.** With `YAJ_LIQUIBASE_CONTEXTS=local` (Compose default), Liquibase runs the
+> `0009-local-seed-data` changeset, populating demo teams, epics, tickets, and comments. Sign in with
+> **`demo@yaj.local`** / **`Demo1234!`**. The seed is gated to the `local` context and never runs when
+> the variable is unset. To reset it, drop the `pgdata` volume (`docker compose down -v`) and start again.
 
 ### PostgreSQL Service Variables
 

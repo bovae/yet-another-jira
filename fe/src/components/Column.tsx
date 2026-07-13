@@ -21,8 +21,8 @@ export function Column({ column }: ColumnProps) {
     <section
       ref={setNodeRef}
       className={cn(
-        'flex max-h-[calc(100vh-16rem)] min-h-30 flex-col rounded-md border border-hairline bg-canvas-soft-2 p-3',
-        isOver && 'ring-2 ring-link',
+        'flex h-[calc(100vh-16rem)] flex-col rounded-md border border-hairline bg-canvas-soft-2 p-3',
+        isOver && 'ring-2 ring-inset ring-link',
       )}
       data-testid="board-column"
       aria-label={label}

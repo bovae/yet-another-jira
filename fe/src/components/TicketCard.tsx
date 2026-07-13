@@ -1,3 +1,4 @@
+import type { ComponentPropsWithRef } from 'react'
 import { useDraggable } from '@dnd-kit/core'
 import { useNavigate } from 'react-router'
 import type { BoardCard } from '@/api/board'
@@ -11,40 +12,24 @@ const TYPE_BADGE_CLASSES: Record<string, string> = {
   fix: 'bg-warning-soft text-warning-deep',
 }
 
-interface TicketCardProps {
+interface TicketCardContentProps extends ComponentPropsWithRef<'article'> {
   card: BoardCard
-  /** The column the card currently sits in, carried as drag data so a drop can detect same-column no-ops. */
-  fromState: string
 }
 
 /**
- * A single ticket card: title, type badge, and optional epic title. Draggable via `@dnd-kit` (drag data
- * carries the source column); a plain click (no drag — the 8px pointer activation distance separates the
- * two, D4/D6) opens the ticket's details view.
+ * Presentational card visuals only — no drag or click wiring. Shared by the draggable `TicketCard`
+ * (source card) and the board's `DragOverlay` (drag preview), so both look identical (D2). Extra props
+ * (ref, drag listeners, onClick) are forwarded onto the article by whichever caller supplies them.
  */
-export function TicketCard({ card, fromState }: TicketCardProps) {
-  const navigate = useNavigate()
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
-    id: card.id,
-    data: { fromState },
-  })
-
-  const style = transform
-    ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` }
-    : undefined
-
+export function TicketCardContent({ card, className, ...rest }: TicketCardContentProps) {
   return (
     <article
-      ref={setNodeRef}
-      style={style}
       className={cn(
         'cursor-grab touch-none rounded-md border border-hairline bg-canvas p-3 shadow-card',
-        isDragging && 'z-10 opacity-60',
+        className,
       )}
       data-testid="ticket-card"
-      onClick={() => void navigate(`/tickets/${card.id}`)}
-      {...listeners}
-      {...attributes}
+      {...rest}
     >
       <p className="mb-2 text-body-sm">{card.title}</p>
       <div className="flex flex-wrap items-center gap-2">
@@ -59,5 +44,36 @@ export function TicketCard({ card, fromState }: TicketCardProps) {
         {card.epicTitle ? <span className="text-caption text-mute">{card.epicTitle}</span> : null}
       </div>
     </article>
+  )
+}
+
+interface TicketCardProps {
+  card: BoardCard
+  /** The column the card currently sits in, carried as drag data so a drop can detect same-column no-ops. */
+  fromState: string
+}
+
+/**
+ * A single draggable ticket card. Drag data carries the source column (for same-column no-op detection)
+ * and the full card (so the board's `DragOverlay` can render a preview, D1/D2). No inline transform: the
+ * overlay handles movement while dragging, and the source card just dims (`opacity-60`) as a placeholder.
+ * A plain click (no drag — the 8px pointer activation distance separates the two, D4/D6) opens details.
+ */
+export function TicketCard({ card, fromState }: TicketCardProps) {
+  const navigate = useNavigate()
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: card.id,
+    data: { fromState, card },
+  })
+
+  return (
+    <TicketCardContent
+      ref={setNodeRef}
+      card={card}
+      className={cn(isDragging && 'opacity-60')}
+      onClick={() => void navigate(`/tickets/${card.id}`)}
+      {...listeners}
+      {...attributes}
+    />
   )
 }

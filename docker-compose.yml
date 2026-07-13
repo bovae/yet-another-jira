@@ -52,6 +52,7 @@ services:
       YAJ_VERIFICATION_REDIRECT_URL: ${YAJ_VERIFICATION_REDIRECT_URL:-http://localhost:8081/login}
       YAJ_VERIFICATION_ERROR_REDIRECT_URL: ${YAJ_VERIFICATION_ERROR_REDIRECT_URL:-http://localhost:8081/verify-error}
       YAJ_JWT_SECRET: ${YAJ_JWT_SECRET:-change-me-in-production-this-is-only-for-local-dev}
+      YAJ_LIQUIBASE_CONTEXTS: local
     ports:
       - '8080:8080'
     healthcheck:
